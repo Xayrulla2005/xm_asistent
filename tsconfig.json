@@ -2,5 +2,21 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
-  "references": []
+  "references": [
+    {
+      "path": "./apps/api-e2e"
+    },
+    {
+      "path": "./apps/api"
+    },
+    {
+      "path": "./apps/admin"
+    },
+    {
+      "path": "./apps/crm"
+    },
+    {
+      "path": "./packages/shared"
+    }
+  ]
 }
