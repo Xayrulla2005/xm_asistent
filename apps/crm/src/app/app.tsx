@@ -3,6 +3,8 @@ import { useAuthStore } from '../stores/auth.store';
 import DynamicLayout from '../components/DynamicLayout';
 import Login from '../pages/Login';
 import Dashboard from '../pages/Dashboard';
+import Pos from '../pages/Pos';
+import Products from '../pages/Products';
 import ModuleRenderer from '../components/ModuleRenderer';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -22,8 +24,10 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/:module"   element={<ModuleRenderer />} />
+        <Route path="/dashboard"  element={<Dashboard />} />
+        <Route path="/pos"        element={<Pos />} />
+        <Route path="/products"   element={<Products />} />
+        <Route path="/:module"    element={<ModuleRenderer />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

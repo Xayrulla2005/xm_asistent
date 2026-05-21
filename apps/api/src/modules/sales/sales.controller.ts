@@ -34,6 +34,11 @@ export class SalesController {
     return this.salesService.getStats(tenantId);
   }
 
+  @Get('receipt/:id')
+  getReceipt(@Param('id', ParseUUIDPipe) id: string) {
+    return this.salesService.getReceipt(id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.salesService.findOne(id);

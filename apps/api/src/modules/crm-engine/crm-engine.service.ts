@@ -5,10 +5,11 @@ import { WizardService } from '../wizard/wizard.service';
 import { WizardConfig } from '../wizard/entities/wizard-config.entity';
 import { GeneratedCrm, GeneratedCrmStatus } from './entities/generated-crm.entity';
 
-// ─── Nav item definitions per industry ───────────────────────────────────────
+// ─── Nav labels ──────────────────────────────────────────────────────────────
 
 const NAV_LABELS: Record<string, string> = {
-  sales:           'Sotuv',
+  pos:             'Sotuv (POS)',
+  sales:           'Sotuv tarixi',
   warehouse:       'Sklad',
   customers:       'Mijozlar',
   payments:        "To'lovlar",
@@ -38,46 +39,157 @@ const NAV_LABELS: Record<string, string> = {
   reservations:    'Bronlar',
 };
 
-// ─── Role → allowed modules per industry ────────────────────────────────────
+// ─── Permission types ─────────────────────────────────────────────────────────
 
-type PermissionMap = Record<string, string[]>;
+export interface RolePermission {
+  modules: string[];
+  actions: string[];
+  denied: string[];
+  canAccessSettings: boolean;
+  canManageUsers: boolean;
+  canViewReports: boolean;
+  canDeleteData: boolean;
+}
 
-const INDUSTRY_PERMISSIONS: Record<string, PermissionMap> = {
+interface RolePermDef {
+  modules: string[];
+  actions: string[];
+  denied?: string[];
+}
+
+// ─── Industry → role → permissions ───────────────────────────────────────────
+
+const INDUSTRY_ROLE_PERMS: Record<string, Record<string, RolePermDef>> = {
   retail: {
-    admin:             ['*'],
-    cashier:           ['sales', 'customers', 'payments'],
-    warehouse_manager: ['warehouse', 'products', 'suppliers'],
-    courier:           ['deliveries'],
-    accountant:        ['payments', 'reports'],
-    sales_manager:     ['sales', 'customers', 'reports'],
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    cashier: {
+      modules: ['pos', 'sales', 'customers', 'payments'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'reports', 'settings'],
+    },
+    warehouse_manager: {
+      modules: ['warehouse', 'products', 'suppliers'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'sales', 'payments', 'reports'],
+    },
+    accountant: {
+      modules: ['payments', 'reports', 'sales'],
+      actions: ['read'],
+      denied:  ['create', 'update', 'delete', 'pos', 'warehouse'],
+    },
+    sales_manager: {
+      modules: ['sales', 'customers', 'reports', 'pos'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'warehouse', 'payments'],
+    },
+    courier: {
+      modules: ['deliveries'],
+      actions: ['read', 'update'],
+      denied:  ['create', 'delete', 'sales', 'warehouse', 'payments'],
+    },
   },
+
   clinic: {
-    admin:           ['*'],
-    doctor:          ['patients', 'appointments', 'medical_records'],
-    nurse:           ['patients', 'appointments'],
-    receptionist:    ['appointments', 'patients'],
-    pharmacist:      ['pharmacy'],
-    lab_technician:  ['lab'],
-    accountant:      ['payments', 'reports'],
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    doctor: {
+      modules: ['patients', 'appointments', 'medical_records'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'payments', 'pharmacy', 'lab'],
+    },
+    nurse: {
+      modules: ['patients', 'appointments'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'medical_records', 'payments'],
+    },
+    receptionist: {
+      modules: ['appointments', 'patients', 'payments'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'medical_records'],
+    },
+    pharmacist: {
+      modules: ['pharmacy'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'patients', 'appointments'],
+    },
+    lab_technician: {
+      modules: ['lab', 'patients'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'payments', 'pharmacy'],
+    },
+    accountant: {
+      modules: ['payments', 'reports'],
+      actions: ['read'],
+      denied:  ['create', 'update', 'delete'],
+    },
   },
+
   education: {
-    admin:        ['*'],
-    teacher:      ['students', 'attendance', 'exams', 'courses'],
-    receptionist: ['students', 'payments'],
-    accountant:   ['payments', 'reports'],
-    curator:      ['students', 'attendance', 'courses'],
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    teacher: {
+      modules: ['students', 'attendance', 'exams', 'courses', 'schedule'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'payments', 'certificates'],
+    },
+    receptionist: {
+      modules: ['students', 'payments', 'schedule'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'exams', 'attendance'],
+    },
+    accountant: {
+      modules: ['payments', 'reports'],
+      actions: ['read'],
+      denied:  ['create', 'update', 'delete'],
+    },
+    curator: {
+      modules: ['students', 'attendance', 'courses', 'certificates'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'payments', 'exams'],
+    },
   },
+
   restaurant: {
-    admin:            ['*'],
-    waiter:           ['orders', 'tables', 'menu'],
-    cook:             ['orders', 'kitchen', 'menu'],
-    cashier:          ['payments', 'orders'],
-    delivery_courier: ['deliveries', 'orders'],
-    accountant:       ['payments', 'reports'],
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    waiter: {
+      modules: ['orders', 'tables', 'menu'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'payments', 'kitchen', 'warehouse'],
+    },
+    cook: {
+      modules: ['orders', 'kitchen', 'menu'],
+      actions: ['read', 'update'],
+      denied:  ['create', 'delete', 'payments', 'tables'],
+    },
+    cashier: {
+      modules: ['payments', 'orders', 'tables'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'kitchen', 'menu'],
+    },
+    delivery_courier: {
+      modules: ['deliveries', 'orders'],
+      actions: ['read', 'update'],
+      denied:  ['create', 'delete', 'payments', 'kitchen'],
+    },
+    accountant: {
+      modules: ['payments', 'reports'],
+      actions: ['read'],
+      denied:  ['create', 'update', 'delete'],
+    },
   },
 };
 
-// ─── Service ─────────────────────────────────────────────────────────────────
+// ─── CrmConfig interface ──────────────────────────────────────────────────────
 
 export interface CrmConfig {
   tenantId: string;
@@ -86,15 +198,20 @@ export interface CrmConfig {
   modules: string[];
   roles: string[];
   theme: {
+    shopName?: string;
+    address?: string;
+    phone?: string;
     primaryColor: string;
     logo: string;
     bgType: string;
     darkMode: boolean;
   };
   navigation: { key: string; label: string; path: string }[];
-  permissions: PermissionMap;
+  permissions: Record<string, RolePermission>;
   generatedAt: Date;
 }
+
+// ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class CrmEngineService {
@@ -106,29 +223,36 @@ export class CrmEngineService {
 
   generateCRM(wizardConfig: WizardConfig): CrmConfig {
     const { tenantId, industry, modules, roles, theme } = wizardConfig;
+    const t = (theme ?? {}) as Record<string, unknown>;
 
     const slug = tenantId.replace(/-/g, '').slice(0, 12);
 
     const navigation = modules.map((key) => ({
       key,
       label: NAV_LABELS[key] ?? key,
-      path: `/${key}`,
+      path:  `/${key}`,
     }));
 
-    const industryPerms = INDUSTRY_PERMISSIONS[industry] ?? {};
-    const permissions: PermissionMap = {};
+    const industryPerms = INDUSTRY_ROLE_PERMS[industry] ?? {};
+    const permissions: Record<string, RolePermission> = {};
 
     for (const role of roles) {
-      const allowed = industryPerms[role];
-      if (!allowed) {
-        permissions[role] = modules;
-        continue;
-      }
-      if (allowed[0] === '*') {
-        permissions[role] = ['*'];
-      } else {
-        permissions[role] = allowed.filter((m) => modules.includes(m));
-      }
+      const def     = industryPerms[role] ?? { modules, actions: ['read'] };
+      const isAdmin = def.modules[0] === '*';
+
+      const resolvedModules = isAdmin
+        ? ['*']
+        : def.modules.filter((m) => modules.includes(m));
+
+      permissions[role] = {
+        modules:           resolvedModules,
+        actions:           def.actions,
+        denied:            def.denied ?? [],
+        canAccessSettings: isAdmin,
+        canManageUsers:    isAdmin,
+        canViewReports:    isAdmin || def.modules.includes('reports'),
+        canDeleteData:     isAdmin || def.actions.includes('delete'),
+      };
     }
 
     return {
@@ -138,10 +262,13 @@ export class CrmEngineService {
       modules,
       roles,
       theme: {
-        primaryColor: (theme as Record<string, unknown>)?.primaryColor as string ?? '#2563eb',
-        logo:         (theme as Record<string, unknown>)?.logo         as string ?? '',
-        bgType:       (theme as Record<string, unknown>)?.bgType       as string ?? 'solid',
-        darkMode:     (theme as Record<string, unknown>)?.darkMode     as boolean ?? false,
+        shopName:     t.shopName     as string  ?? '',
+        address:      t.address      as string  ?? '',
+        phone:        t.phone        as string  ?? '',
+        primaryColor: t.primaryColor as string  ?? '#2563eb',
+        logo:         t.logo         as string  ?? '',
+        bgType:       t.bgType       as string  ?? 'solid',
+        darkMode:     t.darkMode     as boolean ?? false,
       },
       navigation,
       permissions,
@@ -151,10 +278,9 @@ export class CrmEngineService {
 
   async generate(tenantId: string): Promise<CrmConfig> {
     const wizardConfig = await this.wizardService.findByTenant(tenantId);
-    const crmConfig = this.generateCRM(wizardConfig);
+    const crmConfig    = this.generateCRM(wizardConfig);
 
     const existing = await this.repo.findOne({ where: { tenantId } });
-
     if (existing) {
       existing.config = crmConfig as unknown as Record<string, unknown>;
       existing.status = GeneratedCrmStatus.ACTIVE;

@@ -10,21 +10,24 @@ import {
 import { Industry, WizardStatus } from '../entities/wizard-config.entity';
 
 export class ThemeDto {
-  @IsString()
-  @IsOptional()
-  primaryColor?: string;
+  @IsString() @IsOptional() shopName?: string;
+  @IsString() @IsOptional() address?: string;
+  @IsString() @IsOptional() phone?: string;
+  @IsString() @IsOptional() primaryColor?: string;
+  @IsString() @IsOptional() logo?: string;
+  @IsString() @IsOptional() bgType?: string;
+  @IsString() @IsOptional() style?: string;
+  @IsBoolean() @IsOptional() darkMode?: boolean;
+}
 
-  @IsString()
-  @IsOptional()
-  logo?: string;
+export class DashboardDto {
+  @IsArray() @IsString({ each: true }) @IsOptional() widgets?: string[];
+}
 
-  @IsString()
-  @IsOptional()
-  bgType?: string;
-
-  @IsBoolean()
-  @IsOptional()
-  darkMode?: boolean;
+export class ReceiptDto {
+  @IsArray() @IsString({ each: true }) @IsOptional() fields?: string[];
+  @IsString() @IsOptional() width?: string;
+  @IsString() @IsOptional() thankYouText?: string;
 }
 
 export class ConfigureWizardDto {
@@ -42,11 +45,10 @@ export class ConfigureWizardDto {
   @IsString({ each: true })
   roles: string[];
 
-  @IsObject()
-  @IsOptional()
-  theme?: ThemeDto;
+  @IsObject() @IsOptional() theme?: ThemeDto;
+  @IsObject() @IsOptional() dashboard?: DashboardDto;
+  @IsObject() @IsOptional() receipt?: ReceiptDto;
+  @IsObject() @IsOptional() permissions?: Record<string, string[]>;
 
-  @IsEnum(WizardStatus)
-  @IsOptional()
-  status?: WizardStatus;
+  @IsEnum(WizardStatus) @IsOptional() status?: WizardStatus;
 }

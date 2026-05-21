@@ -25,12 +25,15 @@ export class WizardService {
     }
 
     const config = this.repo.create({
-      tenantId: dto.tenantId,
-      industry: dto.industry,
-      modules: dto.modules,
-      roles: dto.roles,
-      theme: dto.theme ?? {},
-      status: dto.status,
+      tenantId:  dto.tenantId,
+      industry:  dto.industry,
+      modules:   dto.modules,
+      roles:     dto.roles,
+      theme:       dto.theme       ?? {},
+      dashboard:   dto.dashboard   ?? {},
+      receipt:     dto.receipt     ?? {},
+      permissions: dto.permissions ?? {},
+      status:    dto.status,
     });
     return this.repo.save(config);
   }

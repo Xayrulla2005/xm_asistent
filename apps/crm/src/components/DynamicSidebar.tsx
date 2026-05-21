@@ -6,17 +6,20 @@ import { useConfigStore } from '../stores/config.store';
 import { NavItem } from '../api/crm-engine.api';
 
 const FALLBACK_NAV: NavItem[] = [
-  { key: 'sales',     label: 'Sotuv',     path: '/sales' },
-  { key: 'warehouse', label: 'Sklad',     path: '/warehouse' },
-  { key: 'customers', label: 'Mijozlar',  path: '/customers' },
-  { key: 'payments',  label: "To'lovlar", path: '/payments' },
+  { key: 'pos',       label: 'Sotuv (POS)',  path: '/pos'       },
+  { key: 'products',  label: 'Mahsulotlar',  path: '/products'  },
+  { key: 'sales',     label: 'Sotuv tarixi', path: '/sales'     },
+  { key: 'warehouse', label: 'Sklad',        path: '/warehouse' },
+  { key: 'customers', label: 'Mijozlar',     path: '/customers' },
+  { key: 'payments',  label: "To'lovlar",    path: '/payments'  },
 ];
 
 export default function DynamicSidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { theme, toggle } = useThemeStore();
-  const config = useConfigStore((s) => s.config);
+  const config     = useConfigStore((s) => s.config);
+  const getUserPerms = useConfigStore((s) => s.getUserPerms);
 
   useEffect(() => {
     if (config?.theme?.primaryColor) {
@@ -24,7 +27,13 @@ export default function DynamicSidebar() {
     }
   }, [config]);
 
-  const navigation = config?.navigation?.length ? config.navigation : FALLBACK_NAV;
+  const allNav = config?.navigation?.length ? config.navigation : FALLBACK_NAV;
+
+  // Filter nav items by current user's role permissions
+  const perms = getUserPerms();
+  const navigation = perms && !perms.modules.includes('*')
+    ? allNav.filter((item) => perms.modules.includes(item.key))
+    : allNav;
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -41,7 +50,7 @@ export default function DynamicSidebar() {
         ) : (
           <span className="sidebar-logo-icon" style={{ color: 'var(--primary, #2563eb)' }}>■</span>
         )}
-        <span>Savdo CRM</span>
+        <span>{config?.theme?.shopName || 'Savdo CRM'}</span>
       </div>
 
       <nav className="sidebar-nav">
@@ -70,6 +79,15 @@ export default function DynamicSidebar() {
         <div className="sidebar-user">
           <span className="sidebar-user-avatar">{user?.email?.[0]?.toUpperCase() ?? 'U'}</span>
           <span className="sidebar-email">{user?.email}</span>
+          {user?.role && (
+            <span style={{
+              fontSize: '0.68rem', background: 'rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.7)', padding: '0.1rem 0.4rem',
+              borderRadius: 4, marginTop: 2,
+            }}>
+              {user.role}
+            </span>
+          )}
         </div>
         <button className="sidebar-logout" onClick={handleLogout}>Chiqish</button>
       </div>

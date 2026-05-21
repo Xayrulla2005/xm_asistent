@@ -36,7 +36,16 @@ export class WizardConfig {
   roles: string[];
 
   @Column({ type: 'jsonb', default: {} })
-  theme: { primaryColor?: string; logo?: string };
+  dashboard: { widgets?: string[] };
+
+  @Column({ type: 'jsonb', default: {} })
+  receipt: { fields?: string[]; width?: string; thankYouText?: string };
+
+  @Column({ type: 'jsonb', default: {} })
+  theme: { shopName?: string; address?: string; phone?: string; primaryColor?: string; logo?: string; style?: string; darkMode?: boolean };
+
+  @Column({ type: 'jsonb', default: {} })
+  permissions: Record<string, string[]>;
 
   @Column({ type: 'enum', enum: WizardStatus, default: WizardStatus.DRAFT })
   status: WizardStatus;

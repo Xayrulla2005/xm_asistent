@@ -1,16 +1,13 @@
 import {
   IsArray,
-  IsEnum,
   IsNumber,
   IsOptional,
-  IsPositive,
   IsString,
   IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaymentType } from '../entities/sale.entity';
 
 export class SaleItemDto {
   @IsUUID()
@@ -20,7 +17,6 @@ export class SaleItemDto {
   name: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
   @Type(() => Number)
   price: number;
 
@@ -28,6 +24,12 @@ export class SaleItemDto {
   @Min(1)
   @Type(() => Number)
   quantity: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  discount?: number;
 }
 
 export class CreateSaleDto {
@@ -35,14 +37,39 @@ export class CreateSaleDto {
   tenantId: string;
 
   @IsString()
-  customerName: string;
+  @IsOptional()
+  customerName?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SaleItemDto)
   items: SaleItemDto[];
 
-  @IsEnum(PaymentType)
+  @IsString()
   @IsOptional()
-  paymentType?: PaymentType;
+  paymentType?: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  cashReceived?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  change?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  mixedCash?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  mixedCard?: number;
 }

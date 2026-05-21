@@ -30,6 +30,11 @@ export class ProductsController {
     return this.productsService.findAll(tenantId);
   }
 
+  @Get('categories')
+  getCategories(@Query('tenantId') tenantId: string) {
+    return this.productsService.getCategories(tenantId);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findOne(id);

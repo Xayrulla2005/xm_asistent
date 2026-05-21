@@ -13,6 +13,7 @@ import { CustomersModule } from '../modules/customers/customers.module';
 import { PaymentsModule } from '../modules/payments/payments.module';
 import { WarehouseModule } from '../modules/warehouse/warehouse.module';
 import { CrmEngineModule } from '../modules/crm-engine/crm-engine.module';
+import { DashboardModule } from '../modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { CrmEngineModule } from '../modules/crm-engine/crm-engine.module';
     PaymentsModule,
     WarehouseModule,
     CrmEngineModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

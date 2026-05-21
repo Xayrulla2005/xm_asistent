@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -30,7 +33,7 @@ export class TenantController {
 
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.tenantService.findOne(id);
+    return this.tenantService.findOneRich(id);
   }
 
   @Patch(':id')
@@ -40,5 +43,12 @@ export class TenantController {
     @Body() dto: UpdateTenantDto,
   ) {
     return this.tenantService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.tenantService.remove(id);
   }
 }

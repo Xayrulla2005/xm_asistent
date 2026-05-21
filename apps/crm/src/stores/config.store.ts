@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import api from '../api/axios';
-import { CrmConfig, getCrmConfig, generateCrmConfig } from '../api/crm-engine.api';
+import { CrmConfig, RolePermission, getCrmConfig, generateCrmConfig } from '../api/crm-engine.api';
 import { useTenantStore } from './tenant.store';
+import { useAuthStore } from './auth.store';
 
 const STORAGE_KEY = 'crm_wizardConfig';
 
@@ -11,12 +12,13 @@ interface ConfigState {
   fetchConfig: (tenantId: string) => Promise<void>;
   clearConfig: () => void;
   hasModule: (key: string) => boolean;
+  canAccess: (moduleKey: string) => boolean;
+  getUserPerms: () => RolePermission | null;
 }
 
 const stored = (() => {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as CrmConfig | null;
-    // Eski WizardConfig formatini (navigation maydonsiz) rad etamiz
     if (parsed && !Array.isArray(parsed.navigation)) {
       localStorage.removeItem(STORAGE_KEY);
       return null;
@@ -34,7 +36,6 @@ async function fetchOrGenerate(tenantId: string): Promise<CrmConfig> {
   try {
     return await getCrmConfig(tenantId);
   } catch {
-    // 404 yoki boshqa xato → avtomatik generatsiya qilamiz
     return await generateCrmConfig(tenantId);
   }
 }
@@ -48,20 +49,15 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const id = tenantId || FALLBACK;
     set({ loading: true });
 
-    // 1-urinish: berilgan tenantId bilan
     try {
       const config = await fetchOrGenerate(id);
       applyTenant(id, config);
       set({ config, loading: false });
       return;
-    } catch {
-      // bu tenant uchun wizard config ham yo'q, keyingisini sinab ko'ramiz
-    }
+    } catch { /* try next tenant */ }
 
-    // 2-urinish: /api/tenants dan boshqa tenantlarni sinab ko'rish
     try {
       const tenants = await api.get<{ id: string }[]>('/tenants').then((r) => r.data);
-
       for (const tenant of tenants) {
         if (tenant.id === id) continue;
         try {
@@ -69,13 +65,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           applyTenant(tenant.id, config);
           set({ config, loading: false });
           return;
-        } catch {
-          // keyingi tenant
-        }
+        } catch { /* try next */ }
       }
-    } catch {
-      // /api/tenants xatosi
-    }
+    } catch { /* /api/tenants failed */ }
 
     localStorage.removeItem(STORAGE_KEY);
     set({ config: null, loading: false });
@@ -90,5 +82,19 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     const { config } = get();
     if (!config || config.modules.length === 0) return true;
     return config.modules.includes(key);
+  },
+
+  getUserPerms: (): RolePermission | null => {
+    const { config } = get();
+    if (!config) return null;
+    const role = useAuthStore.getState().user?.role ?? '';
+    return config.permissions?.[role] ?? null;
+  },
+
+  canAccess: (moduleKey: string): boolean => {
+    const perms = get().getUserPerms();
+    if (!perms) return true;
+    if (perms.modules.includes('*')) return true;
+    return perms.modules.includes(moduleKey);
   },
 }));

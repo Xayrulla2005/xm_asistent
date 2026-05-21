@@ -23,11 +23,20 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   quantity: number;
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  costPrice: number;
+
+  @Column({ type: 'int', default: 5 })
+  minStock: number;
+
   @Column()
   category: string;
 
   @Column({ default: 'dona' })
   unit: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  barcode: string | null;
 
   @Column({ default: true })
   isActive: boolean;

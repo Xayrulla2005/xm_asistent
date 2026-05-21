@@ -6,12 +6,6 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export enum PaymentType {
-  CASH   = 'cash',
-  CARD   = 'card',
-  CREDIT = 'credit',
-}
-
 export enum SaleStatus {
   PENDING   = 'pending',
   COMPLETED = 'completed',
@@ -23,6 +17,7 @@ export interface SaleItem {
   name: string;
   price: number;
   quantity: number;
+  discount: number;
 }
 
 @Entity('sales')
@@ -33,19 +28,34 @@ export class Sale {
   @Column({ type: 'uuid' })
   tenantId: string;
 
-  @Column()
+  @Column({ default: '' })
   customerName: string;
 
   @Column({ type: 'jsonb', default: [] })
   items: SaleItem[];
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  discount: number;
+
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   totalAmount: number;
 
-  @Column({ type: 'enum', enum: PaymentType, default: PaymentType.CASH })
-  paymentType: PaymentType;
+  @Column({ type: 'varchar', default: 'cash' })
+  paymentType: string;
 
-  @Column({ type: 'enum', enum: SaleStatus, default: SaleStatus.PENDING })
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  cashReceived: number | null;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  change: number | null;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  mixedCash: number | null;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  mixedCard: number | null;
+
+  @Column({ type: 'enum', enum: SaleStatus, default: SaleStatus.COMPLETED })
   status: SaleStatus;
 
   @CreateDateColumn()

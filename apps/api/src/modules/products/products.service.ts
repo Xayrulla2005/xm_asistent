@@ -37,4 +37,14 @@ export class ProductsService {
     const product = await this.findOne(id);
     await this.repo.remove(product);
   }
+
+  async getCategories(tenantId: string): Promise<string[]> {
+    const rows = await this.repo
+      .createQueryBuilder('p')
+      .select('DISTINCT p.category', 'category')
+      .where('p.tenantId = :tenantId', { tenantId })
+      .orderBy('p.category', 'ASC')
+      .getRawMany<{ category: string }>();
+    return rows.map((r) => r.category).filter(Boolean);
+  }
 }

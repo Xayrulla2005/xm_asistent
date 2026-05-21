@@ -26,35 +26,22 @@ import PlaceholderPage from '../templates/PlaceholderPage';
 type ModuleMap = Record<string, React.ComponentType>;
 
 const RETAIL_MODULES: ModuleMap = {
-  sales: Sales,
-  warehouse: Warehouse,
-  customers: Customers,
-  payments: Payments,
+  sales: Sales, warehouse: Warehouse, customers: Customers, payments: Payments,
 };
 
 const CLINIC_MODULES: ModuleMap = {
-  patients: Patients,
-  appointments: Appointments,
-  doctors: Doctors,
-  pharmacy: Pharmacy,
-  payments: Payments,
+  patients: Patients, appointments: Appointments, doctors: Doctors,
+  pharmacy: Pharmacy, payments: Payments,
 };
 
 const EDUCATION_MODULES: ModuleMap = {
-  students: Students,
-  courses: Courses,
-  teachers: Teachers,
-  attendance: Attendance,
-  payments: Payments,
+  students: Students, courses: Courses, teachers: Teachers,
+  attendance: Attendance, payments: Payments,
 };
 
 const RESTAURANT_MODULES: ModuleMap = {
-  menu: Menu,
-  orders: Orders,
-  kitchen: Kitchen,
-  tables: Tables,
-  payments: Payments,
-  warehouse: Warehouse,
+  menu: Menu, orders: Orders, kitchen: Kitchen, tables: Tables,
+  payments: Payments, warehouse: Warehouse,
 };
 
 const ALL_MODULES: Record<string, ModuleMap> = {
@@ -66,7 +53,27 @@ const ALL_MODULES: Record<string, ModuleMap> = {
 
 export default function ModuleRenderer() {
   const { module } = useParams<{ module: string }>();
-  const config = useConfigStore((s) => s.config);
+  const config     = useConfigStore((s) => s.config);
+  const canAccess  = useConfigStore((s) => s.canAccess);
+
+  // Permission guard
+  if (module && !canAccess(module)) {
+    return (
+      <div className="page">
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', height: '60vh', gap: '1rem', textAlign: 'center',
+        }}>
+          <span style={{ fontSize: '3.5rem' }}>🔒</span>
+          <h2 style={{ margin: 0, color: 'var(--text)' }}>Ruxsat yo'q</h2>
+          <p style={{ margin: 0, color: 'var(--text-muted)', maxWidth: 320 }}>
+            <strong>{module}</strong> moduliga kirish uchun ruxsatingiz mavjud emas.
+            Administrator bilan bog'laning.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const industryKey = config?.industry ?? 'retail';
   const moduleMap   = ALL_MODULES[industryKey] ?? RETAIL_MODULES;

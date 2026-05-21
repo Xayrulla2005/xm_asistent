@@ -33,6 +33,22 @@ export class UpdateProductDto {
   @IsOptional()
   unit?: string;
 
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  @IsOptional()
+  costPrice?: number;
+
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  @IsOptional()
+  minStock?: number;
+
+  @IsString()
+  @IsOptional()
+  barcode?: string;
+
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
