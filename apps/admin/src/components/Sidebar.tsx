@@ -4,7 +4,8 @@ import { useThemeStore } from '../stores/theme.store';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
-  { to: '/tenants', label: 'Tenants' },
+  { to: '/tenants',   label: 'Tenants'   },
+  { to: '/bugs',      label: 'Bug Tracker' },
 ];
 
 export default function Sidebar() {

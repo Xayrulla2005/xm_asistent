@@ -16,6 +16,7 @@ import { CrmEngineModule } from '../modules/crm-engine/crm-engine.module';
 import { DashboardModule } from '../modules/dashboard/dashboard.module';
 import { EmployeesModule } from '../modules/employees/employees.module';
 import { UploadModule } from '../modules/upload/upload.module';
+import { BugsModule } from '../modules/bugs/bugs.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { UploadModule } from '../modules/upload/upload.module';
     DashboardModule,
     EmployeesModule,
     UploadModule,
+    BugsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

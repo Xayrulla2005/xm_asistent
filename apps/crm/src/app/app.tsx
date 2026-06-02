@@ -7,6 +7,7 @@ import Employees from '../pages/Employees';
 import Pos from '../pages/Pos';
 import Products from '../pages/Products';
 import ModuleRenderer from '../components/ModuleRenderer';
+import BugReportButton from '../components/BugReportButton';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -16,6 +17,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
+    <>
+    <BugReportButton />
     <Routes>
       <Route path="/" element={<Login />} />
       <Route
@@ -33,5 +36,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

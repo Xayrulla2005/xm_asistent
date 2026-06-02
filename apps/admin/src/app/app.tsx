@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 import Layout from '../components/Layout';
+import Bugs from '../pages/Bugs';
 import Dashboard from '../pages/Dashboard';
 import Login from '../pages/Login';
 import Tenants from '../pages/Tenants';
@@ -25,7 +26,8 @@ export function App() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/tenants" element={<Tenants />} />
+        <Route path="/tenants"   element={<Tenants />} />
+        <Route path="/bugs"      element={<Bugs />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
