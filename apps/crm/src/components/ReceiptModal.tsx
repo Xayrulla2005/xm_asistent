@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { ReceiptData } from '../api/sales.api';
+import { useConfigStore } from '../stores/config.store';
 
 const fmt = (n: number) => Number(n).toLocaleString('uz-UZ') + " so'm";
 
@@ -12,12 +13,18 @@ const PAY_LABELS: Record<string, string> = {
 
 interface Props {
   receipt: ReceiptData;
-  storeName?: string;
   onClose: () => void;
 }
 
-export default function ReceiptModal({ receipt, storeName = "Do'kon", onClose }: Props) {
-  const printRef = useRef<HTMLDivElement>(null);
+export default function ReceiptModal({ receipt, onClose }: Props) {
+  const printRef  = useRef<HTMLDivElement>(null);
+  const config    = useConfigStore((s) => s.config);
+  const storeName = config?.theme?.shopName || "Do'kon";
+  const logoUrl   = config?.theme?.logo
+    ? (config.theme.logo.startsWith('/uploads/')
+        ? `http://localhost:3000${config.theme.logo}`
+        : config.theme.logo)
+    : null;
 
   const handlePrint = () => {
     const content = printRef.current?.innerHTML ?? '';
@@ -69,6 +76,16 @@ export default function ReceiptModal({ receipt, storeName = "Do'kon", onClose }:
 
         <div className="receipt-wrap" ref={printRef}>
           <div className="receipt">
+            {logoUrl && (
+              <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                <img
+                  src={logoUrl}
+                  alt="logo"
+                  style={{ height: 48, objectFit: 'contain' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
             <p className="receipt-store">{storeName}</p>
 
             <div className="receipt-divider" />

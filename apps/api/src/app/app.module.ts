@@ -14,6 +14,7 @@ import { PaymentsModule } from '../modules/payments/payments.module';
 import { WarehouseModule } from '../modules/warehouse/warehouse.module';
 import { CrmEngineModule } from '../modules/crm-engine/crm-engine.module';
 import { DashboardModule } from '../modules/dashboard/dashboard.module';
+import { UploadModule } from '../modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { DashboardModule } from '../modules/dashboard/dashboard.module';
     WarehouseModule,
     CrmEngineModule,
     DashboardModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

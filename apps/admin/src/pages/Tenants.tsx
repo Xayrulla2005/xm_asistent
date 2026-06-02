@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bar, CartesianGrid, Cell, ComposedChart,
   Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -414,6 +414,95 @@ function CrmPreview({ theme }: { theme: WizardTheme }) {
   );
 }
 
+// ── Logo upload component ──────────────────────────────────────────────────────
+
+function LogoUpload({
+  value, onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const inputRef               = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragover,  setDragover]  = useState(false);
+
+  const upload = useCallback(async (file: File) => {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await api.post<{ url: string }>('/upload/logo', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      onChange(data.url);
+    } catch {
+      alert('Yuklashda xatolik. Faqat PNG/JPG/SVG (max 2MB)');
+    } finally {
+      setUploading(false);
+    }
+  }, [onChange]);
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) upload(file);
+    e.target.value = '';
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragover(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) upload(file);
+  };
+
+  return (
+    <div>
+      {value && (
+        <div className="logo-upload-row">
+          <img
+            src={value.startsWith('/uploads/') ? `http://localhost:3000${value}` : value}
+            alt="logo preview"
+            className="logo-preview"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+          <button className="logo-remove-btn" onClick={() => onChange('')}>
+            Olib tashlash
+          </button>
+        </div>
+      )}
+
+      <div
+        className={`logo-upload-area${dragover ? ' dragover' : ''}`}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragover(true); }}
+        onDragLeave={() => setDragover(false)}
+        onDrop={onDrop}
+      >
+        <div className="logo-upload-icon">{uploading ? '⏳' : '📷'}</div>
+        <div className="logo-upload-text">
+          {uploading ? 'Yuklanmoqda...' : 'Logo yuklang — PNG, JPG, SVG (max 2MB)'}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
+          style={{ display: 'none' }}
+          onChange={onFileChange}
+        />
+      </div>
+
+      <div className="logo-url-sep">Yoki URL kiriting:</div>
+      <input
+        className="wz-input"
+        type="url"
+        placeholder="https://example.com/logo.png"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
 // ── Role card with permissions accordion ──────────────────────────────────────
 
 function RoleCard({
@@ -729,6 +818,10 @@ function TenantDetailModal({
                 <div className="wz-form-group">
                   <label className="wz-label">Do'kon nomi</label>
                   <input className="wz-input" value={localTheme.shopName} onChange={(e) => setLocalTheme((t) => ({ ...t, shopName: e.target.value }))} />
+                </div>
+                <div className="wz-form-group">
+                  <label className="wz-label">Logo</label>
+                  <LogoUpload value={localTheme.logo} onChange={(url) => setLocalTheme((t) => ({ ...t, logo: url }))} />
                 </div>
                 <div className="wz-form-group">
                   <label className="wz-label">Asosiy rang</label>
@@ -1291,9 +1384,8 @@ export default function Tenants() {
                         value={data.theme.phone} onChange={(e) => setTheme({ phone: e.target.value })} />
                     </div>
                     <div className="wz-form-group">
-                      <label className="wz-label">Logo URL</label>
-                      <input className="wz-input" type="url" placeholder="https://example.com/logo.png"
-                        value={data.theme.logo} onChange={(e) => setTheme({ logo: e.target.value })} />
+                      <label className="wz-label">Logo</label>
+                      <LogoUpload value={data.theme.logo} onChange={(url) => setTheme({ logo: url })} />
                     </div>
                     <div className="wz-form-group">
                       <label className="wz-label">Asosiy rang</label>
