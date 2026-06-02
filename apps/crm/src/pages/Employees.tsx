@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -44,6 +44,8 @@ export default function Employees() {
   const [form, setForm]           = useState<FormData>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError]  = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const canManage = user?.role === 'admin' || user?.role === 'manager';
 
@@ -60,6 +62,16 @@ export default function Employees() {
   };
 
   useEffect(() => { fetchEmployees(); }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const openCreate = () => {
     setEditTarget(null);
@@ -188,15 +200,26 @@ export default function Employees() {
                       {new Date(emp.createdAt).toLocaleDateString('uz-UZ')}
                     </td>
                     {canManage && (
-                      <td>
-                        <div className="action-btns">
-                          <button className="action-btn action-btn--edit" onClick={() => openEdit(emp)}>
-                            Tahrirlash
-                          </button>
-                          <button className="action-btn action-btn--delete" onClick={() => handleDelete(emp)}>
-                            O'chirish
-                          </button>
-                        </div>
+                      <td style={{ position: 'relative' }}>
+                        <button
+                          className="dots-btn"
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === emp.id ? null : emp.id); }}
+                        >
+                          ⋯
+                        </button>
+                        {openMenuId === emp.id && (
+                          <div className="dots-menu" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+                            <button className="dots-menu-item" onClick={() => { openEdit(emp); setOpenMenuId(null); }}>
+                              ✏️ Tahrirlash
+                            </button>
+                            <button className="dots-menu-item" onClick={() => { toggleActive(emp); setOpenMenuId(null); }}>
+                              {emp.isActive ? '🔴 Bloklash' : '🟢 Faollashtirish'}
+                            </button>
+                            <button className="dots-menu-item dots-menu-item--danger" onClick={() => { handleDelete(emp); setOpenMenuId(null); }}>
+                              🗑️ O'chirish
+                            </button>
+                          </div>
+                        )}
                       </td>
                     )}
                   </tr>
