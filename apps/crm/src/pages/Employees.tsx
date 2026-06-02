@@ -45,6 +45,7 @@ export default function Employees() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError]  = useState('');
   const [openMenu, setOpenMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ employeeId: string; employeeName: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const canManage = user?.role === 'admin' || user?.role === 'manager';
@@ -123,12 +124,18 @@ export default function Employees() {
     } catch { /* silent */ }
   };
 
-  const handleDelete = async (emp: Employee) => {
-    if (!confirm(`"${emp.firstName} ${emp.lastName}" ni o'chirmoqchimisiz?`)) return;
+  const openConfirmDelete = (emp: Employee) => {
+    setConfirmModal({ employeeId: emp.id, employeeName: `${emp.firstName} ${emp.lastName}` });
+  };
+
+  const deleteEmployee = async () => {
+    if (!confirmModal) return;
     try {
-      await api.delete(`/employees/${emp.id}`);
-      setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
-    } catch { /* silent */ }
+      await api.delete(`/employees/${confirmModal.employeeId}`);
+      setEmployees((prev) => prev.filter((e) => e.id !== confirmModal.employeeId));
+    } catch { /* silent */ } finally {
+      setConfirmModal(null);
+    }
   };
 
   const set = (p: Partial<FormData>) => setForm((f) => ({ ...f, ...p }));
@@ -147,6 +154,7 @@ export default function Employees() {
 
       {!loading && !error && (
         <div className="table-wrap">
+          <div style={{ overflowX: 'auto' }}>
           <table className="table">
             <thead>
               <tr>
@@ -154,7 +162,7 @@ export default function Employees() {
                 <th>Email</th>
                 <th>Lavozim</th>
                 <th>Holat</th>
-                <th>Kirilgan</th>
+                <th className="col-date">Kirilgan</th>
                 {canManage && <th>Amallar</th>}
               </tr>
             </thead>
@@ -196,7 +204,7 @@ export default function Employees() {
                         </span>
                       )}
                     </td>
-                    <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <td className="col-date" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                       {new Date(emp.createdAt).toLocaleDateString('uz-UZ')}
                     </td>
                     {canManage && (
@@ -225,7 +233,7 @@ export default function Employees() {
                             <button className="dots-menu-item" onClick={() => { toggleActive(emp); setOpenMenu(null); }}>
                               {emp.isActive ? '🔴 Bloklash' : '🟢 Faollashtirish'}
                             </button>
-                            <button className="dots-menu-item dots-menu-item--danger" onClick={() => { handleDelete(emp); setOpenMenu(null); }}>
+                            <button className="dots-menu-item dots-menu-item--danger" onClick={() => { openConfirmDelete(emp); setOpenMenu(null); }}>
                               🗑️ O'chirish
                             </button>
                           </div>
@@ -237,10 +245,25 @@ export default function Employees() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
-      {/* Modal */}
+      {/* Confirm delete modal */}
+      {confirmModal && (
+        <div className="confirm-overlay" onClick={() => setConfirmModal(null)}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Xodimni o'chirish</h3>
+            <p>"{confirmModal.employeeName}" ni o'chirmoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi.</p>
+            <div className="confirm-actions">
+              <button className="btn-secondary" onClick={() => setConfirmModal(null)}>Bekor</button>
+              <button className="btn-danger" onClick={deleteEmployee}>O'chirish</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit/Create modal */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
