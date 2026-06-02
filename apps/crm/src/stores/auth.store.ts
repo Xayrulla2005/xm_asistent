@@ -27,12 +27,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('crm_accessToken', data.accessToken);
     localStorage.setItem('crm_refreshToken', data.refreshToken);
+    if (data.sessionToken) localStorage.setItem('crm_sessionToken', data.sessionToken);
     set({ accessToken: data.accessToken, user: data.user });
   },
 
   logout: () => {
     localStorage.removeItem('crm_accessToken');
     localStorage.removeItem('crm_refreshToken');
+    localStorage.removeItem('crm_sessionToken');
     set({ accessToken: null, user: null });
   },
 }));

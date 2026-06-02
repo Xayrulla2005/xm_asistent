@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { Repository } from 'typeorm';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -21,18 +22,20 @@ export class AuthService {
     const exists = await this.userRepo.findOne({ where: { email: dto.email } });
     if (exists) throw new ConflictException('Email already in use');
 
+    const sessionToken = uuidv4();
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = this.userRepo.create({
       email: dto.email,
       password: hashed,
       role: dto.role,
       tenantId: dto.tenantId ?? null,
+      sessionToken,
     });
     await this.userRepo.save(user);
 
     const tokens = await this.issueTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
-    return tokens;
+    return { ...tokens, sessionToken };
   }
 
   async login(dto: LoginDto) {
@@ -42,9 +45,13 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
+    const sessionToken = uuidv4();
+    await this.userRepo.update(user.id, { sessionToken });
+    user.sessionToken = sessionToken;
+
     const tokens = await this.issueTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
-    return tokens;
+    return { ...tokens, sessionToken };
   }
 
   async refresh(user: User) {
@@ -54,7 +61,7 @@ export class AuthService {
   }
 
   async logout(userId: string): Promise<void> {
-    await this.userRepo.update(userId, { refreshToken: null });
+    await this.userRepo.update(userId, { refreshToken: null, sessionToken: null });
   }
 
   private async issueTokens(user: User) {
@@ -63,6 +70,7 @@ export class AuthService {
       email: user.email,
       role: user.role,
       tenantId: user.tenantId ?? null,
+      sessionToken: user.sessionToken ?? null,
     };
 
     const [accessToken, refreshToken] = await Promise.all([

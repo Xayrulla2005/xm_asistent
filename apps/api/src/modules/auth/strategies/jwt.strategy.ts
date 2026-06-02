@@ -11,6 +11,7 @@ export interface JwtPayload {
   email: string;
   role: string;
   tenantId: string | null;
+  sessionToken: string | null;
 }
 
 @Injectable()
@@ -30,6 +31,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<User> {
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException();
+    if (user.sessionToken !== payload.sessionToken) {
+      throw new UnauthorizedException('Session expired. Logged in from another device.');
+    }
     return user;
   }
 }
