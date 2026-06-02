@@ -64,6 +64,6 @@ export class EmployeesController {
     @Headers('x-tenant-id') tenantHeader: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.service.deactivate(this.tid(user, tenantHeader), id);
+    return this.service.remove(this.tid(user, tenantHeader), id);
   }
 }

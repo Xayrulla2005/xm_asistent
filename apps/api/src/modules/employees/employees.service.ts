@@ -59,7 +59,7 @@ export class EmployeesService {
   async remove(tenantId: string, id: string): Promise<void> {
     const emp = await this.repo.findOne({ where: { id, tenantId } });
     if (!emp) throw new NotFoundException(`Xodim #${id} topilmadi`);
-    await this.repo.delete(id);
+    await this.repo.delete({ id, tenantId });
   }
 
   private strip(emp: Employee) {

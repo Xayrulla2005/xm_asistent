@@ -130,12 +130,12 @@ export default function Employees() {
 
   const deleteEmployee = async () => {
     if (!confirmModal) return;
+    const { employeeId } = confirmModal;
     try {
-      await api.delete(`/employees/${confirmModal.employeeId}`);
-      setEmployees((prev) => prev.filter((e) => e.id !== confirmModal.employeeId));
-    } catch { /* silent */ } finally {
+      await api.delete(`/employees/${employeeId}`);
+      setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
       setConfirmModal(null);
-    }
+    } catch { /* silent */ }
   };
 
   const set = (p: Partial<FormData>) => setForm((f) => ({ ...f, ...p }));
