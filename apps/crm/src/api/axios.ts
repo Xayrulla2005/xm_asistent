@@ -7,6 +7,8 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('crm_accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const tenantId = localStorage.getItem('crm_tenantId');
+  if (tenantId) config.headers['X-Tenant-Id'] = tenantId;
   return config;
 });
 

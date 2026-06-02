@@ -20,10 +20,10 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   firstName: string | null;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, type: 'varchar' })
   lastName: string | null;
 
   @Column({ default: true })

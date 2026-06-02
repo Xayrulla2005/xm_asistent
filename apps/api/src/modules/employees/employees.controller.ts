@@ -1,6 +1,6 @@
 import {
   Body, Controller, Delete, Get,
-  HttpCode, HttpStatus,
+  Headers, HttpCode, HttpStatus,
   Param, ParseUUIDPipe, Patch, Post, UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -17,33 +17,53 @@ import { EmployeesService } from './employees.service';
 export class EmployeesController {
   constructor(private readonly service: EmployeesService) {}
 
+  private tid(user: any, header: string): string {
+    return user.tenantId ?? header;
+  }
+
   @Post()
-  create(@CurrentUser() user: any, @Body() dto: CreateEmployeeDto) {
-    return this.service.create(user.tenantId, dto);
+  create(
+    @CurrentUser() user: any,
+    @Headers('x-tenant-id') tenantHeader: string,
+    @Body() dto: CreateEmployeeDto,
+  ) {
+    return this.service.create(this.tid(user, tenantHeader), dto);
   }
 
   @Get()
-  findAll(@CurrentUser() user: any) {
-    return this.service.findAll(user.tenantId);
+  findAll(
+    @CurrentUser() user: any,
+    @Headers('x-tenant-id') tenantHeader: string,
+  ) {
+    return this.service.findAll(this.tid(user, tenantHeader));
   }
 
   @Get(':id')
-  findOne(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
-    return this.service.findOne(user.tenantId, id);
+  findOne(
+    @CurrentUser() user: any,
+    @Headers('x-tenant-id') tenantHeader: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.findOne(this.tid(user, tenantHeader), id);
   }
 
   @Patch(':id')
   update(
     @CurrentUser() user: any,
+    @Headers('x-tenant-id') tenantHeader: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateEmployeeDto,
   ) {
-    return this.service.update(user.tenantId, id, dto);
+    return this.service.update(this.tid(user, tenantHeader), id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
-    return this.service.deactivate(user.tenantId, id);
+  remove(
+    @CurrentUser() user: any,
+    @Headers('x-tenant-id') tenantHeader: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.service.deactivate(this.tid(user, tenantHeader), id);
   }
 }
