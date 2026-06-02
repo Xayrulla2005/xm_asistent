@@ -44,7 +44,7 @@ export default function Employees() {
   const [form, setForm]           = useState<FormData>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError]  = useState('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const canManage = user?.role === 'admin' || user?.role === 'manager';
@@ -66,7 +66,7 @@ export default function Employees() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenuId(null);
+        setOpenMenu(null);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -200,22 +200,32 @@ export default function Employees() {
                       {new Date(emp.createdAt).toLocaleDateString('uz-UZ')}
                     </td>
                     {canManage && (
-                      <td style={{ position: 'relative' }}>
+                      <td>
                         <button
                           className="dots-btn"
-                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === emp.id ? null : emp.id); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (openMenu?.id === emp.id) { setOpenMenu(null); return; }
+                            const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                            setOpenMenu({ id: emp.id, x: rect.right - 180, y: rect.bottom + 4 });
+                          }}
                         >
                           ⋯
                         </button>
-                        {openMenuId === emp.id && (
-                          <div className="dots-menu" ref={menuRef} onClick={(e) => e.stopPropagation()}>
-                            <button className="dots-menu-item" onClick={() => { openEdit(emp); setOpenMenuId(null); }}>
+                        {openMenu?.id === emp.id && (
+                          <div
+                            className="dots-menu"
+                            ref={menuRef}
+                            style={{ top: openMenu.y, left: openMenu.x }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button className="dots-menu-item" onClick={() => { openEdit(emp); setOpenMenu(null); }}>
                               ✏️ Tahrirlash
                             </button>
-                            <button className="dots-menu-item" onClick={() => { toggleActive(emp); setOpenMenuId(null); }}>
+                            <button className="dots-menu-item" onClick={() => { toggleActive(emp); setOpenMenu(null); }}>
                               {emp.isActive ? '🔴 Bloklash' : '🟢 Faollashtirish'}
                             </button>
-                            <button className="dots-menu-item dots-menu-item--danger" onClick={() => { handleDelete(emp); setOpenMenuId(null); }}>
+                            <button className="dots-menu-item dots-menu-item--danger" onClick={() => { handleDelete(emp); setOpenMenu(null); }}>
                               🗑️ O'chirish
                             </button>
                           </div>
