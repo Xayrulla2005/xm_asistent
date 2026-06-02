@@ -8,6 +8,10 @@ interface AuthState {
   accessToken: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  isAdmin: () => boolean;
+  isManager: () => boolean;
+  isCashier: () => boolean;
+  isWarehouse: () => boolean;
 }
 
 function parseJwt(token: string): User | null {
@@ -19,9 +23,14 @@ function parseJwt(token: string): User | null {
 
 const stored = localStorage.getItem('crm_accessToken');
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: stored ? parseJwt(stored) : null,
   accessToken: stored,
+
+  isAdmin:     () => get().user?.role === 'admin',
+  isManager:   () => get().user?.role === 'manager',
+  isCashier:   () => get().user?.role === 'cashier',
+  isWarehouse: () => get().user?.role === 'warehouse',
 
   login: async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });

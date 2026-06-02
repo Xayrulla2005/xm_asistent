@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Repository } from 'typeorm';
+import { Employee } from '../../employees/entities/employee.entity';
 import { User } from '../entities/user.entity';
 
 export interface JwtPayload {
@@ -20,6 +21,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     config: ConfigService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Employee)
+    private readonly employeeRepo: Repository<Employee>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -28,12 +31,21 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<User> {
-    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
-    if (!user) throw new UnauthorizedException();
-    if (user.sessionToken !== payload.sessionToken) {
+  async validate(payload: JwtPayload): Promise<User | Employee> {
+    // Try users table first
+    let entity: User | Employee | null = await this.userRepo.findOne({ where: { id: payload.sub } });
+
+    // Fall back to employees table
+    if (!entity) {
+      entity = await this.employeeRepo.findOne({ where: { id: payload.sub } });
+    }
+
+    if (!entity) throw new UnauthorizedException();
+
+    if (entity.sessionToken !== payload.sessionToken) {
       throw new UnauthorizedException('Session expired. Logged in from another device.');
     }
-    return user;
+
+    return entity;
   }
 }

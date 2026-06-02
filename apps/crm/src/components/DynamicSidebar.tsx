@@ -35,6 +35,8 @@ export default function DynamicSidebar() {
     ? allNav.filter((item) => perms.modules.includes(item.key))
     : allNav;
 
+  const canManageEmployees = user?.role === 'admin' || user?.role === 'manager';
+
   const handleLogout = () => { logout(); navigate('/'); };
 
   return (
@@ -70,6 +72,15 @@ export default function DynamicSidebar() {
             {item.label}
           </NavLink>
         ))}
+
+        {canManageEmployees && (
+          <NavLink
+            to="/employees"
+            className={({ isActive }) => 'sidebar-link' + (isActive ? ' sidebar-link--active' : '')}
+          >
+            Xodimlar
+          </NavLink>
+        )}
       </nav>
 
       <div className="sidebar-footer">

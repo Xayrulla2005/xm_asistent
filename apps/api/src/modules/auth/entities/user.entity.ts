@@ -20,6 +20,18 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
+  @Column({ nullable: true })
+  firstName: string | null;
+
+  @Column({ nullable: true })
+  lastName: string | null;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ nullable: true, type: 'uuid' })
+  createdBy: string | null;
+
   @Column({ nullable: true, type: 'uuid' })
   tenantId: string | null;
 
