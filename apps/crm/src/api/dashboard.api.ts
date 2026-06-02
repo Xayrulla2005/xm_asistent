@@ -63,7 +63,7 @@ export interface DashboardStats {
   lowStock: LowStockItem[];
 }
 
-export const getDashboardStats = (tenantId: string, date: string) =>
+export const getDashboardStats = (_tenantId: string, date: string) =>
   api
-    .get<DashboardStats>('/dashboard/stats', { params: { tenantId, date } })
+    .get<DashboardStats>('/dashboard/stats', { params: { date } })
     .then((r) => r.data);

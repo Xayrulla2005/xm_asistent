@@ -1,4 +1,5 @@
 import { useParams } from 'react-router-dom';
+import { useAuthStore } from '../stores/auth.store';
 import { useConfigStore } from '../stores/config.store';
 
 import Sales from '../pages/Sales';
@@ -55,9 +56,11 @@ export default function ModuleRenderer() {
   const { module } = useParams<{ module: string }>();
   const config     = useConfigStore((s) => s.config);
   const canAccess  = useConfigStore((s) => s.canAccess);
+  const userRole   = useAuthStore((s) => s.user?.role ?? '');
 
-  // Permission guard
-  if (module && !canAccess(module)) {
+  // Permission guard — admins bypass all module restrictions
+  const isAdmin = userRole === 'admin' || userRole === 'ADMIN';
+  if (module && !isAdmin && !canAccess(module)) {
     return (
       <div className="page">
         <div style={{

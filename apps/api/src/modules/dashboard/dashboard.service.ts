@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In } from 'typeorm';
-import { Sale, SaleStatus, PaymentType } from '../sales/entities/sale.entity';
+import { Sale, SaleStatus } from '../sales/entities/sale.entity';
 import { Product } from '../products/entities/product.entity';
 
 function dayRange(date: Date): [Date, Date] {
@@ -23,6 +23,7 @@ export class DashboardService {
   ) {}
 
   async getStats(tenantId: string, dateStr?: string) {
+    try {
     const target    = dateStr ? new Date(dateStr) : new Date();
     const yesterday = new Date(target.getTime() - 86400000);
 
@@ -51,7 +52,7 @@ export class DashboardService {
 
     // ── Load products needed for profit calculation ───────────────────────────
     const productIds = [
-      ...new Set(todaySales.flatMap(s => s.items.map(i => i.productId))),
+      ...new Set(todaySales.flatMap(s => (s.items ?? []).map(i => i.productId))),
     ];
     const products = productIds.length > 0
       ? await this.productRepo.findBy({ id: In(productIds) })
@@ -64,12 +65,12 @@ export class DashboardService {
 
     const sumProfit = (sales: Sale[]) =>
       sales.reduce((s, sale) =>
-        s + sale.items.reduce((is, item) => {
+        s + (sale.items ?? []).reduce((is, item) => {
           const cost = Number(productMap.get(item.productId)?.costPrice ?? 0);
           return is + (Number(item.price) - cost) * item.quantity;
         }, 0), 0);
 
-    const byType = (sales: Sale[], type: PaymentType) =>
+    const byType = (sales: Sale[], type: string) =>
       sales.filter(s => s.paymentType === type).reduce((s, sale) => s + Number(sale.totalAmount), 0);
 
     // ── a) Cards ──────────────────────────────────────────────────────────────
@@ -77,9 +78,9 @@ export class DashboardService {
     const yesterdayRevenue = sumRevenue(yesterdaySales);
     const grossProfit      = sumProfit(todaySales);
     const grossProfitYest  = sumProfit(yesterdaySales);
-    const cashTotal   = byType(todaySales, PaymentType.CASH);
-    const cardTotal   = byType(todaySales, PaymentType.CARD);
-    const debtTotal   = byType(todaySales, PaymentType.CREDIT);
+    const cashTotal   = byType(todaySales, 'cash');
+    const cardTotal   = byType(todaySales, 'card');
+    const debtTotal   = byType(todaySales, 'credit');
 
     const cards = {
       todayRevenue,
@@ -87,11 +88,11 @@ export class DashboardService {
       grossProfit,
       grossProfitChange:  pct(grossProfit, grossProfitYest),
       cashTotal,
-      cashChange:  pct(cashTotal, byType(yesterdaySales, PaymentType.CASH)),
+      cashChange:  pct(cashTotal, byType(yesterdaySales, 'cash')),
       cardTotal,
-      cardChange:  pct(cardTotal, byType(yesterdaySales, PaymentType.CARD)),
+      cardChange:  pct(cardTotal, byType(yesterdaySales, 'card')),
       debtTotal,
-      debtChange:  pct(debtTotal, byType(yesterdaySales, PaymentType.CREDIT)),
+      debtChange:  pct(debtTotal, byType(yesterdaySales, 'credit')),
       todaySalesCount:     todaySales.length,
       yesterdaySalesCount: yesterdaySales.length,
     };
@@ -124,7 +125,7 @@ export class DashboardService {
       customerName: s.customerName,
       paymentType:  s.paymentType,
       totalAmount:  Number(s.totalAmount),
-      itemsCount:   s.items.length,
+      itemsCount:   (s.items ?? []).length,
     }));
 
     // ── e) Best selling ───────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ export class DashboardService {
       totalQty: number; totalRevenue: number; totalProfit: number;
     }>();
     for (const sale of todaySales) {
-      for (const item of sale.items) {
+      for (const item of (sale.items ?? [])) {
         const prod = productMap.get(item.productId);
         const cost = Number(prod?.costPrice ?? 0);
         const rev  = Number(item.price) * item.quantity;
@@ -178,5 +179,26 @@ export class DashboardService {
     }));
 
     return { cards, weeklyChart, paymentBreakdown, recentSales, bestSelling, lowStock };
+    } catch {
+      return {
+        cards: {
+          todayRevenue: 0, todayRevenueChange: 0,
+          grossProfit: 0, grossProfitChange: 0,
+          cashTotal: 0, cashChange: 0,
+          cardTotal: 0, cardChange: 0,
+          debtTotal: 0, debtChange: 0,
+          todaySalesCount: 0, yesterdaySalesCount: 0,
+        },
+        weeklyChart: [],
+        paymentBreakdown: {
+          cash:   { amount: 0, percent: 0 },
+          card:   { amount: 0, percent: 0 },
+          credit: { amount: 0, percent: 0 },
+        },
+        recentSales: [],
+        bestSelling: [],
+        lowStock: [],
+      };
+    }
   }
 }

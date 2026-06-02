@@ -5,20 +5,38 @@ import { useThemeStore } from '../stores/theme.store';
 import { useConfigStore } from '../stores/config.store';
 import { NavItem } from '../api/crm-engine.api';
 
+// Labels/paths for every known module key — used when config.navigation lacks an entry
+const MODULE_NAV_MAP: Record<string, NavItem> = {
+  pos:          { key: 'pos',          label: 'Sotuv (POS)',      path: '/pos'          },
+  products:     { key: 'products',     label: 'Mahsulotlar',      path: '/products'     },
+  sales:        { key: 'sales',        label: 'Sotuv tarixi',     path: '/sales'        },
+  warehouse:    { key: 'warehouse',    label: 'Sklad',            path: '/warehouse'    },
+  customers:    { key: 'customers',    label: 'Mijozlar',         path: '/customers'    },
+  payments:     { key: 'payments',     label: "To'lovlar",        path: '/payments'     },
+  patients:     { key: 'patients',     label: 'Bemorlar',         path: '/patients'     },
+  appointments: { key: 'appointments', label: 'Qabullar',         path: '/appointments' },
+  doctors:      { key: 'doctors',      label: 'Shifokorlar',      path: '/doctors'      },
+  pharmacy:     { key: 'pharmacy',     label: 'Dorixona',         path: '/pharmacy'     },
+  students:     { key: 'students',     label: 'Talabalar',        path: '/students'     },
+  courses:      { key: 'courses',      label: 'Kurslar',          path: '/courses'      },
+  teachers:     { key: 'teachers',     label: "O'qituvchilar",    path: '/teachers'     },
+  attendance:   { key: 'attendance',   label: 'Davomat',          path: '/attendance'   },
+  menu:         { key: 'menu',         label: 'Menyu',            path: '/menu'         },
+  orders:       { key: 'orders',       label: 'Buyurtmalar',      path: '/orders'       },
+  kitchen:      { key: 'kitchen',      label: 'Oshxona',          path: '/kitchen'      },
+  tables:       { key: 'tables',       label: 'Stollar',          path: '/tables'       },
+};
+
 const FALLBACK_NAV: NavItem[] = [
-  { key: 'pos',       label: 'Sotuv (POS)',  path: '/pos'       },
-  { key: 'products',  label: 'Mahsulotlar',  path: '/products'  },
-  { key: 'sales',     label: 'Sotuv tarixi', path: '/sales'     },
-  { key: 'warehouse', label: 'Sklad',        path: '/warehouse' },
-  { key: 'customers', label: 'Mijozlar',     path: '/customers' },
-  { key: 'payments',  label: "To'lovlar",    path: '/payments'  },
+  MODULE_NAV_MAP.pos, MODULE_NAV_MAP.products, MODULE_NAV_MAP.sales,
+  MODULE_NAV_MAP.warehouse, MODULE_NAV_MAP.customers, MODULE_NAV_MAP.payments,
 ];
 
 export default function DynamicSidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { theme, toggle } = useThemeStore();
-  const config     = useConfigStore((s) => s.config);
+  const config       = useConfigStore((s) => s.config);
   const getUserPerms = useConfigStore((s) => s.getUserPerms);
 
   useEffect(() => {
@@ -27,13 +45,20 @@ export default function DynamicSidebar() {
     }
   }, [config]);
 
-  const allNav = config?.navigation?.length ? config.navigation : FALLBACK_NAV;
+  // Build nav strictly from wizard-selected modules.
+  // Prefer the label/path from config.navigation; fall back to the local map.
+  const configuredNav: NavItem[] = config?.modules?.length
+    ? config.modules
+        .map((key) => config.navigation?.find((n) => n.key === key) ?? MODULE_NAV_MAP[key])
+        .filter((item): item is NavItem => item !== undefined)
+    : FALLBACK_NAV;
 
-  // Filter nav items by current user's role permissions
+  // Further filter by current user's role permissions
   const perms = getUserPerms();
-  const navigation = perms && !perms.modules.includes('*')
-    ? allNav.filter((item) => perms.modules.includes(item.key))
-    : allNav;
+  const permModules = perms?.modules ?? [];
+  const navigation = permModules.length && !permModules.includes('*')
+    ? configuredNav.filter((item) => permModules.includes(item.key))
+    : configuredNav;
 
   const canManageEmployees = user?.role === 'admin' || user?.role === 'manager';
 
