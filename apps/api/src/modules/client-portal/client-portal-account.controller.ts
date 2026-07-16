@@ -30,4 +30,14 @@ export class ClientPortalAccountController {
   getDebts(@Req() req: { user: Customer }) {
     return this.service.getDebts(req.user.id, req.user.tenantId);
   }
+
+  @Get('beauty-appointments')
+  getBeautyAppointments(@Req() req: { user: Customer }) {
+    return this.service.getBeautyAppointments(req.user.id, req.user.tenantId);
+  }
+
+  @Get('gym-membership')
+  getGymMembership(@Req() req: { user: Customer }) {
+    return this.service.getGymMembership(req.user.id, req.user.tenantId);
+  }
 }

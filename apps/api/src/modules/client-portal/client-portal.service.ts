@@ -15,6 +15,12 @@ import { Sale } from '../sales/entities/sale.entity';
 import { Debt } from '../debts/entities/debt.entity';
 import { Promotion } from './entities/promotion.entity';
 import { Announcement } from './entities/announcement.entity';
+import { WizardConfig } from '../wizard/entities/wizard-config.entity';
+import { BeautyAppointment } from '../beauty/entities/beauty-appointment.entity';
+import { BeautyCatalog } from '../beauty/entities/beauty-catalog.entity';
+import { GymMember } from '../gym/entities/gym-member.entity';
+import { GymPlan } from '../gym/entities/gym-plan.entity';
+import { GymCheckIn } from '../gym/entities/gym-checkin.entity';
 
 @Injectable()
 export class ClientPortalService {
@@ -31,6 +37,18 @@ export class ClientPortalService {
     private readonly promoRepo: Repository<Promotion>,
     @InjectRepository(Announcement)
     private readonly annRepo: Repository<Announcement>,
+    @InjectRepository(WizardConfig)
+    private readonly wizardRepo: Repository<WizardConfig>,
+    @InjectRepository(BeautyAppointment)
+    private readonly beautyApptRepo: Repository<BeautyAppointment>,
+    @InjectRepository(BeautyCatalog)
+    private readonly beautyCatalogRepo: Repository<BeautyCatalog>,
+    @InjectRepository(GymMember)
+    private readonly gymMemberRepo: Repository<GymMember>,
+    @InjectRepository(GymPlan)
+    private readonly gymPlanRepo: Repository<GymPlan>,
+    @InjectRepository(GymCheckIn)
+    private readonly gymCheckinRepo: Repository<GymCheckIn>,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -41,7 +59,7 @@ export class ClientPortalService {
     const tenant = await this.tenantRepo.findOne({ where: { slug, isActive: true } });
     if (!tenant) throw new NotFoundException('Portal topilmadi');
 
-    const [promos, announcements] = await Promise.all([
+    const [promos, announcements, wizard] = await Promise.all([
       this.promoRepo.find({
         where: { tenantId: tenant.id, isActive: true },
         order: { createdAt: 'DESC' },
@@ -50,13 +68,78 @@ export class ClientPortalService {
         where: { tenantId: tenant.id, isActive: true },
         order: { createdAt: 'DESC' },
       }),
+      this.wizardRepo.findOne({ where: { tenantId: tenant.id } }),
     ]);
 
     return {
-      tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
+      tenant: {
+        id:           tenant.id,
+        name:         tenant.name,
+        slug:         tenant.slug,
+        industry:     wizard?.industry ?? null,
+        primaryColor: wizard?.theme?.primaryColor ?? null,
+        logo:         wizard?.logoUrl ?? wizard?.theme?.logo ?? null,
+        phone:        wizard?.companyPhone ?? wizard?.theme?.phone ?? null,
+        address:      wizard?.companyAddress ?? null,
+      },
       promos,
       announcements,
     };
+  }
+
+  // ── Industry-specific public data ─────────────────────────────────────────────
+
+  async getPublicServiceCatalog(slug: string) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug, isActive: true } });
+    if (!tenant) throw new NotFoundException('Portal topilmadi');
+    return this.beautyCatalogRepo.find({
+      where: { tenantId: tenant.id, isActive: true },
+      order: { category: 'ASC', name: 'ASC' },
+    });
+  }
+
+  async getGymPublicPlans(slug: string) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug, isActive: true } });
+    if (!tenant) throw new NotFoundException('Portal topilmadi');
+    return this.gymPlanRepo.find({
+      where: { tenantId: tenant.id, isActive: true },
+      order: { price: 'ASC' },
+    });
+  }
+
+  // ── Industry-specific account data ────────────────────────────────────────────
+
+  async getBeautyAppointments(customerId: string, tenantId: string) {
+    const customer = await this.customerRepo.findOne({ where: { id: customerId, tenantId } });
+    if (!customer) throw new NotFoundException('Mijoz topilmadi');
+    return this.beautyApptRepo.find({
+      where: { tenantId, clientPhone: customer.phone },
+      order: { date: 'DESC', timeSlot: 'DESC' },
+      take: 50,
+    });
+  }
+
+  async getGymMembership(customerId: string, tenantId: string) {
+    const customer = await this.customerRepo.findOne({ where: { id: customerId, tenantId } });
+    if (!customer) throw new NotFoundException('Mijoz topilmadi');
+
+    const member = await this.gymMemberRepo.findOne({
+      where: { tenantId, phone: customer.phone },
+    });
+    if (!member) return { member: null, recentCheckins: [], plan: null };
+
+    const [recentCheckins, plan] = await Promise.all([
+      this.gymCheckinRepo.find({
+        where: { tenantId, memberId: member.id },
+        order: { checkedAt: 'DESC' },
+        take: 30,
+      }),
+      member.planId
+        ? this.gymPlanRepo.findOne({ where: { id: member.planId, tenantId } })
+        : Promise.resolve(null),
+    ]);
+
+    return { member, recentCheckins, plan };
   }
 
   async customerLogin(slug: string, phone: string, password: string) {

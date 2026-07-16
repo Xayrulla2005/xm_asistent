@@ -23,15 +23,78 @@ export interface Announcement {
 }
 
 export interface PortalTenant {
-  id:   string;
-  name: string;
-  slug: string;
+  id:           string;
+  name:         string;
+  slug:         string;
+  industry:     string | null;
+  primaryColor: string | null;
+  logo:         string | null;
+  phone:        string | null;
+  address:      string | null;
 }
 
 export interface PortalPublicPage {
   tenant:        PortalTenant;
   promos:        Promotion[];
   announcements: Announcement[];
+}
+
+export interface ServiceCatalogItem {
+  id:        string;
+  name:      string;
+  category:  string | null;
+  duration:  number;
+  price:     number;
+}
+
+export interface BeautyAppointment {
+  id:           string;
+  clientName:   string;
+  clientPhone:  string | null;
+  masterName:   string | null;
+  serviceName:  string | null;
+  servicePrice: number;
+  date:         string;
+  timeSlot:     string;
+  duration:     number;
+  status:       string;
+  notes:        string | null;
+  createdAt:    string;
+}
+
+export interface GymMemberData {
+  id:            string;
+  firstName:     string;
+  lastName:      string;
+  phone:         string | null;
+  planName:      string | null;
+  planPrice:     number | null;
+  joinedAt:      string | null;
+  expiresAt:     string | null;
+  status:        string;
+  totalCheckins: number;
+  notes:         string | null;
+}
+
+export interface GymCheckin {
+  id:         string;
+  memberName: string;
+  note:       string | null;
+  checkedAt:  string;
+}
+
+export interface GymPlanData {
+  id:           string;
+  name:         string;
+  description:  string | null;
+  durationDays: number;
+  price:        number;
+}
+
+export interface GymMembershipData {
+  member:         GymMemberData | null;
+  recentCheckins: GymCheckin[];
+  plan:           GymPlanData | null;
 }
 
 export interface PortalCustomer {
@@ -132,6 +195,26 @@ export async function getPortalPurchases(token: string): Promise<PortalSale[]> {
 
 export async function getPortalDebts(token: string): Promise<PortalDebt[]> {
   const { data } = await api.get('/portal/account/debts', authHeader(token));
+  return data;
+}
+
+export async function getBeautyAppointments(token: string): Promise<BeautyAppointment[]> {
+  const { data } = await api.get('/portal/account/beauty-appointments', authHeader(token));
+  return data;
+}
+
+export async function getGymMembership(token: string): Promise<GymMembershipData> {
+  const { data } = await api.get('/portal/account/gym-membership', authHeader(token));
+  return data;
+}
+
+export async function getPublicServiceCatalog(slug: string): Promise<ServiceCatalogItem[]> {
+  const { data } = await api.get(`/portal/${slug}/services`);
+  return data;
+}
+
+export async function getPublicGymPlans(slug: string): Promise<GymPlanData[]> {
+  const { data } = await api.get(`/portal/${slug}/gym-plans`);
   return data;
 }
 

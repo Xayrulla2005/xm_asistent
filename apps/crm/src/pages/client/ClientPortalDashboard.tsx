@@ -1,11 +1,14 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getStoredToken, getStoredCustomer, clearSession,
-  getPortalProfile, updatePortalProfile,
+  getPortalProfile, getPortalPage, updatePortalProfile,
   getPortalPurchases, getPortalDebts,
-  PortalCustomer, PortalSale, PortalDebt,
+  PortalCustomer, PortalSale, PortalDebt, PortalTenant,
 } from '../../api/client-portal.api';
+
+const BeautyPortalDashboard  = lazy(() => import('./portals/BeautyPortalDashboard'));
+const FitnessPortalDashboard = lazy(() => import('./portals/FitnessPortalDashboard'));
 
 type Tab = 'purchases' | 'debts' | 'profile';
 
@@ -38,6 +41,7 @@ export default function ClientPortalDashboard() {
   const navigate   = useNavigate();
 
   const [customer,   setCustomer]   = useState<PortalCustomer | null>(getStoredCustomer(slug ?? ''));
+  const [tenant,     setTenant]     = useState<PortalTenant | null>(null);
   const [purchases,  setPurchases]  = useState<PortalSale[]>([]);
   const [debts,      setDebts]      = useState<PortalDebt[]>([]);
   const [tab,        setTab]        = useState<Tab>('purchases');
@@ -66,14 +70,15 @@ export default function ClientPortalDashboard() {
       getPortalProfile(token),
       getPortalPurchases(token),
       getPortalDebts(token),
+      getPortalPage(slug).catch(() => null),
     ])
-      .then(([prof, sales, dts]) => {
+      .then(([prof, sales, dts, page]) => {
         setCustomer(prof);
         setPurchases(sales);
         setDebts(dts);
+        if (page?.tenant) setTenant(page.tenant);
       })
       .catch(() => {
-        // Token expired — logout
         clearSession(slug);
         navigate(`/client/${slug}/login`, { replace: true });
       })
@@ -161,7 +166,30 @@ export default function ClientPortalDashboard() {
             </div>
           </div>
 
-          {/* Tabs */}
+          {/* Industry-specific dashboard for beauty and fitness portals */}
+          {(tenant?.industry === 'beauty' || tenant?.industry === 'fitness') && slug && token && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>Yuklanmoqda...</div>}>
+                {tenant.industry === 'beauty' && (
+                  <BeautyPortalDashboard
+                    token={token}
+                    slug={slug}
+                    color={tenant.primaryColor ?? '#ec4899'}
+                  />
+                )}
+                {tenant.industry === 'fitness' && (
+                  <FitnessPortalDashboard
+                    token={token}
+                    slug={slug}
+                    color={tenant.primaryColor ?? '#10b981'}
+                  />
+                )}
+              </Suspense>
+            </div>
+          )}
+
+          {/* Tabs — shown for retail and other industries */}
+          {(!tenant?.industry || (tenant.industry !== 'beauty' && tenant.industry !== 'fitness')) && (<>
           <div className="cp-tabs">
             {(['purchases', 'debts', 'profile'] as Tab[]).map((t) => (
               <button
@@ -319,6 +347,7 @@ export default function ClientPortalDashboard() {
               )}
             </div>
           )}
+          </>)}
 
         </main>
       )}

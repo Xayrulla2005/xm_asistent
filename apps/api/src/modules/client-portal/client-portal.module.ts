@@ -9,6 +9,12 @@ import { Sale } from '../sales/entities/sale.entity';
 import { Debt } from '../debts/entities/debt.entity';
 import { Promotion } from './entities/promotion.entity';
 import { Announcement } from './entities/announcement.entity';
+import { WizardConfig } from '../wizard/entities/wizard-config.entity';
+import { BeautyAppointment } from '../beauty/entities/beauty-appointment.entity';
+import { BeautyCatalog } from '../beauty/entities/beauty-catalog.entity';
+import { GymMember } from '../gym/entities/gym-member.entity';
+import { GymPlan } from '../gym/entities/gym-plan.entity';
+import { GymCheckIn } from '../gym/entities/gym-checkin.entity';
 import { CustomerJwtStrategy } from './strategies/customer-jwt.strategy';
 import { ClientPortalService } from './client-portal.service';
 import { ClientPortalPublicController } from './client-portal-public.controller';
@@ -17,7 +23,10 @@ import { ClientPortalAdminController } from './client-portal-admin.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer, Tenant, Sale, Debt, Promotion, Announcement]),
+    TypeOrmModule.forFeature([
+      Customer, Tenant, Sale, Debt, Promotion, Announcement,
+      WizardConfig, BeautyAppointment, BeautyCatalog, GymMember, GymPlan, GymCheckIn,
+    ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports:    [ConfigModule],
