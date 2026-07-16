@@ -9,6 +9,7 @@ import {
 
 const BeautyPortalDashboard  = lazy(() => import('./portals/BeautyPortalDashboard'));
 const FitnessPortalDashboard = lazy(() => import('./portals/FitnessPortalDashboard'));
+const ClinicPortalDashboard  = lazy(() => import('./portals/ClinicPortalDashboard'));
 
 type Tab = 'purchases' | 'debts' | 'profile';
 
@@ -166,8 +167,8 @@ export default function ClientPortalDashboard() {
             </div>
           </div>
 
-          {/* Industry-specific dashboard for beauty and fitness portals */}
-          {(tenant?.industry === 'beauty' || tenant?.industry === 'fitness') && slug && token && (
+          {/* Industry-specific dashboards */}
+          {(tenant?.industry === 'beauty' || tenant?.industry === 'fitness' || tenant?.industry === 'clinic') && slug && token && (
             <div style={{ marginTop: '0.5rem' }}>
               <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>Yuklanmoqda...</div>}>
                 {tenant.industry === 'beauty' && (
@@ -184,12 +185,18 @@ export default function ClientPortalDashboard() {
                     color={tenant.primaryColor ?? '#10b981'}
                   />
                 )}
+                {tenant.industry === 'clinic' && (
+                  <ClinicPortalDashboard
+                    token={token}
+                    color={tenant.primaryColor ?? '#6366f1'}
+                  />
+                )}
               </Suspense>
             </div>
           )}
 
-          {/* Tabs — shown for retail and other industries */}
-          {(!tenant?.industry || (tenant.industry !== 'beauty' && tenant.industry !== 'fitness')) && (<>
+          {/* Tabs — shown for retail and other non-specialized industries */}
+          {(!tenant?.industry || (tenant.industry !== 'beauty' && tenant.industry !== 'fitness' && tenant.industry !== 'clinic')) && (<>
           <div className="cp-tabs">
             {(['purchases', 'debts', 'profile'] as Tab[]).map((t) => (
               <button

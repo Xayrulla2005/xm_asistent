@@ -15,6 +15,9 @@ import { BeautyCatalog } from '../beauty/entities/beauty-catalog.entity';
 import { GymMember } from '../gym/entities/gym-member.entity';
 import { GymPlan } from '../gym/entities/gym-plan.entity';
 import { GymCheckIn } from '../gym/entities/gym-checkin.entity';
+import { Patient } from '../clinic/entities/patient.entity';
+import { Appointment as ClinicAppointment } from '../clinic/entities/appointment.entity';
+import { Prescription } from '../clinic/entities/prescription.entity';
 import { CustomerJwtStrategy } from './strategies/customer-jwt.strategy';
 import { ClientPortalService } from './client-portal.service';
 import { ClientPortalPublicController } from './client-portal-public.controller';
@@ -26,6 +29,7 @@ import { ClientPortalAdminController } from './client-portal-admin.controller';
     TypeOrmModule.forFeature([
       Customer, Tenant, Sale, Debt, Promotion, Announcement,
       WizardConfig, BeautyAppointment, BeautyCatalog, GymMember, GymPlan, GymCheckIn,
+      Patient, ClinicAppointment, Prescription,
     ]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

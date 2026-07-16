@@ -40,4 +40,9 @@ export class ClientPortalAccountController {
   getGymMembership(@Req() req: { user: Customer }) {
     return this.service.getGymMembership(req.user.id, req.user.tenantId);
   }
+
+  @Get('clinic-data')
+  getClinicData(@Req() req: { user: Customer }) {
+    return this.service.getClinicData(req.user.id, req.user.tenantId);
+  }
 }

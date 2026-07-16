@@ -21,6 +21,9 @@ import { BeautyCatalog } from '../beauty/entities/beauty-catalog.entity';
 import { GymMember } from '../gym/entities/gym-member.entity';
 import { GymPlan } from '../gym/entities/gym-plan.entity';
 import { GymCheckIn } from '../gym/entities/gym-checkin.entity';
+import { Patient } from '../clinic/entities/patient.entity';
+import { Appointment as ClinicAppointment } from '../clinic/entities/appointment.entity';
+import { Prescription } from '../clinic/entities/prescription.entity';
 
 @Injectable()
 export class ClientPortalService {
@@ -49,6 +52,12 @@ export class ClientPortalService {
     private readonly gymPlanRepo: Repository<GymPlan>,
     @InjectRepository(GymCheckIn)
     private readonly gymCheckinRepo: Repository<GymCheckIn>,
+    @InjectRepository(Patient)
+    private readonly clinicPatientRepo: Repository<Patient>,
+    @InjectRepository(ClinicAppointment)
+    private readonly clinicApptRepo: Repository<ClinicAppointment>,
+    @InjectRepository(Prescription)
+    private readonly prescriptionRepo: Repository<Prescription>,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -140,6 +149,31 @@ export class ClientPortalService {
     ]);
 
     return { member, recentCheckins, plan };
+  }
+
+  async getClinicData(customerId: string, tenantId: string) {
+    const customer = await this.customerRepo.findOne({ where: { id: customerId, tenantId } });
+    if (!customer) throw new NotFoundException('Mijoz topilmadi');
+
+    const patient = await this.clinicPatientRepo.findOne({
+      where: { tenantId, phone: customer.phone },
+    });
+    if (!patient) return { patient: null, appointments: [], prescriptions: [] };
+
+    const [appointments, prescriptions] = await Promise.all([
+      this.clinicApptRepo.find({
+        where: { tenantId, patientId: patient.id },
+        order: { date: 'DESC', time: 'DESC' },
+        take: 50,
+      }),
+      this.prescriptionRepo.find({
+        where: { tenantId, patientId: patient.id },
+        order: { date: 'DESC' },
+        take: 30,
+      }),
+    ]);
+
+    return { patient, appointments, prescriptions };
   }
 
   async customerLogin(slug: string, phone: string, password: string) {

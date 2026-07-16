@@ -97,6 +97,58 @@ export interface GymMembershipData {
   plan:           GymPlanData | null;
 }
 
+export interface ClinicPatientData {
+  id:          string;
+  firstName:   string;
+  lastName:    string;
+  phone:       string | null;
+  dateOfBirth: string | null;
+  gender:      string | null;
+  bloodType:   string | null;
+  address:     string | null;
+  notes:       string | null;
+}
+
+export interface ClinicAppointmentData {
+  id:          string;
+  doctorName:  string | null;
+  specialty:   string | null;
+  date:        string;
+  time:        string;
+  duration:    number;
+  type:        string | null;
+  status:      string;
+  notes:       string | null;
+  fee:         number;
+  createdAt:   string;
+}
+
+export interface PrescriptionItem {
+  medicineId:   string;
+  medicineName: string;
+  dosage:       string;
+  frequency:    string;
+  days:         number;
+  notes?:       string;
+}
+
+export interface ClinicPrescriptionData {
+  id:          string;
+  doctorName:  string;
+  date:        string;
+  diagnosis:   string | null;
+  notes:       string | null;
+  status:      string;
+  items:       PrescriptionItem[];
+  createdAt:   string;
+}
+
+export interface ClinicPortalData {
+  patient:       ClinicPatientData | null;
+  appointments:  ClinicAppointmentData[];
+  prescriptions: ClinicPrescriptionData[];
+}
+
 export interface PortalCustomer {
   id:        string;
   name:      string;
@@ -215,6 +267,11 @@ export async function getPublicServiceCatalog(slug: string): Promise<ServiceCata
 
 export async function getPublicGymPlans(slug: string): Promise<GymPlanData[]> {
   const { data } = await api.get(`/portal/${slug}/gym-plans`);
+  return data;
+}
+
+export async function getClinicData(token: string): Promise<ClinicPortalData> {
+  const { data } = await api.get('/portal/account/clinic-data', authHeader(token));
   return data;
 }
 
