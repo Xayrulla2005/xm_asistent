@@ -70,3 +70,13 @@ export const getEmployees = (tenantId: string) =>
 
 export const patchEmployee = (tenantId: string, empId: string, patch: Partial<EmployeeRow>) =>
   api.patch<EmployeeRow>(`/employees/${empId}`, patch, { headers: { 'x-tenant-id': tenantId } }).then((r) => r.data);
+
+export interface ImpersonateResult {
+  token:     string;
+  expiresAt: string;
+  slug:      string;
+  tenantId:  string;
+}
+
+export const impersonateTenant = (tenantId: string) =>
+  api.post<ImpersonateResult>(`/tenants/${tenantId}/impersonate`).then((r) => r.data);

@@ -18,6 +18,8 @@ export default function DynamicLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
+  const isImpersonated = localStorage.getItem('crm_impersonated') === 'true';
+
   // Close sidebar on route change (mobile)
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
@@ -55,6 +57,29 @@ export default function DynamicLayout() {
 
   return (
     <div className="layout">
+      {/* Superadmin impersonation banner */}
+      {isImpersonated && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+          background: '#7c3aed', color: '#fff',
+          padding: '0.35rem 1rem', fontSize: '0.8rem', fontWeight: 600,
+          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+        }}>
+          <span>Superadmin rejimi — siz boshqa tenant CRM'ini ko'rmoqdasiz ({config?.theme?.shopName ?? 'tenant'})</span>
+          <button
+            onClick={() => {
+              localStorage.removeItem('crm_impersonated');
+              localStorage.removeItem('crm_accessToken');
+              window.close();
+            }}
+            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.2rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.78rem' }}
+          >
+            Chiqish
+          </button>
+        </div>
+      )}
+
       {/* Backdrop (mobile only) */}
       {sidebarOpen && (
         <div

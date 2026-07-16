@@ -180,6 +180,18 @@ export class TenantController {
     return this.tenantService.update(id, dto);
   }
 
+  @Post(':id/impersonate')
+  @UseGuards(JwtAuthGuard)
+  async impersonate(
+    @CurrentUser() user: { role?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (user.role !== 'superadmin') throw new ForbiddenException('Faqat superadmin uchun');
+    const tenant = await this.tenantService.findOne(id);
+    const result = await this.authService.generateImpersonateToken(tenant.ownerId);
+    return { ...result, slug: tenant.slug, tenantId: tenant.id };
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)

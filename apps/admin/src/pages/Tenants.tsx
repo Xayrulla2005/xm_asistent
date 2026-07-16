@@ -18,6 +18,7 @@ import { useAuthStore } from '../stores/auth.store';
 import {
   WizardCfg, WizardCfgTheme, EmployeeRow,
   getWizardConfig, updateWizardConfig, generateCrm, getEmployees, patchEmployee,
+  impersonateTenant,
 } from '../api/wizard.api';
 import { getBilling, getPaymentHistory } from '../api/billing.api';
 import type { Subscription, PaymentHistoryItem } from '../api/billing.api';
@@ -2953,9 +2954,10 @@ function TenantDetailModal({
   const [tab, setTab]               = useState<'umumiy' | 'analitika' | 'resurslar' | 'billing' | 'foydalanuvchilar' | 'buglar'>('umumiy');
   const [billing,        setBilling]     = useState<Subscription | null>(null);
   const [payments,       setPayments]    = useState<PaymentHistoryItem[]>([]);
-  const [billingLoading, setBillingLoad] = useState(false);
-  const [slugCopied,     setSlugCopied] = useState(false);
-  const [employees,      setEmployees]   = useState<EmployeeRow[] | null>(null);
+  const [billingLoading, setBillingLoad]   = useState(false);
+  const [slugCopied,     setSlugCopied]   = useState(false);
+  const [impersonating,  setImpersonating]= useState(false);
+  const [employees,      setEmployees]    = useState<EmployeeRow[] | null>(null);
   const [empLoading,     setEmpLoading]  = useState(false);
   const [tenantBugs,     setTenantBugs]  = useState<TenantBug[] | null>(null);
   const [bugsLoading,    setBugsLoading] = useState(false);
@@ -3006,6 +3008,20 @@ function TenantDetailModal({
     setTimeout(() => setSlugCopied(false), 1800);
   };
 
+  const handleImpersonate = async () => {
+    setImpersonating(true);
+    try {
+      const result = await impersonateTenant(detail.id);
+      const crmBase = (import.meta as Record<string, unknown> & { env: Record<string, string> }).env['VITE_CRM_URL'] ?? 'http://localhost:4300';
+      const url = `${crmBase}/impersonate?token=${encodeURIComponent(result.token)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      // ignore — user sees no feedback, admin can retry
+    } finally {
+      setImpersonating(false);
+    }
+  };
+
   const TABS = [
     { key: 'umumiy',          icon: <Info size={15} />,        label: 'Umumiy'          },
     { key: 'analitika',       icon: <BarChart2 size={15} />,   label: 'Analitika'       },
@@ -3036,6 +3052,15 @@ function TenantDetailModal({
             {detail.isActive ? '● Faol' : '● Nofaol'}
           </span>
           <div className="td-header-actions">
+            <button
+              className="btn-secondary"
+              onClick={handleImpersonate}
+              disabled={impersonating}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <LogIn size={14} />
+              {impersonating ? 'Ochilmoqda...' : 'CRM kirish'}
+            </button>
             <button className="btn-secondary" onClick={onEdit}>Tahrirlash</button>
             <button className="btn-danger" onClick={onDelete}>O'chirish</button>
             <button className="td-close" onClick={onClose}>✕</button>

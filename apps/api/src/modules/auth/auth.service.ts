@@ -229,6 +229,28 @@ export class AuthService {
     return { ...tokens, sessionToken };
   }
 
+  async generateImpersonateToken(ownerId: string): Promise<{ token: string; expiresAt: string }> {
+    const user = await this.userRepo.findOne({ where: { id: ownerId } });
+    if (!user) throw new UnauthorizedException('Tenant egasi topilmadi');
+
+    const payload = {
+      sub:          user.id,
+      email:        user.email,
+      role:         user.role,
+      tenantId:     user.tenantId ?? null,
+      sessionToken: user.sessionToken ?? null,
+      impersonated: true,
+    };
+
+    const token = await this.jwtService.signAsync(payload as Record<string, unknown>, {
+      secret:    this.config.get<string>('JWT_SECRET'),
+      expiresIn: '30m',
+    });
+
+    const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
+    return { token, expiresAt };
+  }
+
   async reissueForUser(userId: string): Promise<{ accessToken: string; refreshToken: string; user: { id: string; email: string; role: string } }> {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('Foydalanuvchi topilmadi');

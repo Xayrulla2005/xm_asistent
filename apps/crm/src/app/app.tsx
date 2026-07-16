@@ -15,6 +15,7 @@ import ToastContainer from '../components/ToastContainer';
 import ClientPortalLanding from '../pages/client/ClientPortalLanding';
 import ClientPortalLogin from '../pages/client/ClientPortalLogin';
 import ClientPortalDashboard from '../pages/client/ClientPortalDashboard';
+import Impersonate from '../pages/Impersonate';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/" element={<Login />} />
       {/* Public routes — no auth required */}
       <Route path="/register"               element={<Register />} />
+      <Route path="/impersonate"            element={<Impersonate />} />
       <Route path="/wizard/:tenantId"       element={<Wizard />} />
       {/* Client portal — separate auth (customer JWT), no staff auth needed */}
       <Route path="/client/:slug"           element={<ClientPortalLanding />} />

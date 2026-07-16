@@ -1,23 +1,28 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Building2, Palette, Receipt, ShoppingCart,
-  Lock, Globe, Save, Upload, Check,
+  Lock, Globe, Save, Upload, Check, CreditCard, LayoutGrid, TrendingUp,
+  Users, HardDrive, Zap,
 } from 'lucide-react';
 import { useTenantStore } from '../stores/tenant.store';
 import { useConfigStore } from '../stores/config.store';
 import { useAuthStore } from '../stores/auth.store';
 import { useToastStore } from '../stores/toast.store';
 import { useFeaturesStore } from '../stores/features.store';
-import { getWizardConfig, WizardConfig } from '../api/wizard.api';
+import { getWizardConfig, updateWizardConfig, getPublicDefaults, WizardConfig } from '../api/wizard.api';
+import { getMySubscription, getMyLimits, Subscription, UsageLimits } from '../api/billing.api';
 import api from '../api/axios';
 
-type Tab = 'biznes' | 'pos' | 'chek' | 'korinish' | 'parol';
+type Tab = 'biznes' | 'pos' | 'chek' | 'korinish' | 'parol' | 'billing' | 'modullar';
 
 const TABS: { key: Tab; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
   { key: 'biznes',   label: 'Biznes',    Icon: Building2   },
+  { key: 'modullar', label: 'Modullar',  Icon: LayoutGrid  },
   { key: 'pos',      label: 'POS',       Icon: ShoppingCart },
   { key: 'chek',     label: 'Chek',      Icon: Receipt      },
   { key: 'korinish', label: "Ko'rinish", Icon: Palette      },
+  { key: 'billing',  label: 'Billing',   Icon: CreditCard   },
   { key: 'parol',    label: 'Parol',     Icon: Lock         },
 ];
 
@@ -60,6 +65,41 @@ const DISCOUNT_MODES = [
   { key: 'both',    label: 'Ikkalasi' },
 ];
 
+const MODULE_LABELS: Record<string, string> = {
+  pos:                     'Sotuv (POS)',
+  products:                'Mahsulotlar',
+  sales:                   'Sotuv tarixi',
+  warehouse:               'Sklad',
+  customers:               'Mijozlar',
+  payments:                "To'lovlar",
+  reports:                 'Hisobotlar',
+  employees:               'Xodimlar',
+  branches:                'Filiallar',
+  portal:                  'Mijoz portali',
+  patients:                'Bemorlar',
+  appointments:            'Qabullar',
+  doctors:                 'Shifokorlar',
+  pharmacy:                'Dorixona',
+  prescriptions:           'Retseptlar',
+  students:                'Talabalar',
+  courses:                 'Kurslar',
+  teachers:                "O'qituvchilar",
+  attendance:              'Davomat',
+  edu_payments:            "Oylik to'lov",
+  menu:                    'Menyu',
+  orders:                  'Buyurtmalar',
+  kitchen:                 'Oshxona',
+  tables:                  'Stollar',
+  gym_members:             "A'zolar",
+  gym_plans:               'Obuna rejalari',
+  gym_checkin:             'Kirish nazorati',
+  beauty_appointments:     'Qabullar',
+  beauty_masters:          'Masterlar',
+  beauty_services_catalog: 'Xizmatlar katalogi',
+  auto_orders:             'Servis buyurtmalari',
+  auto_vehicles:           'Avtomobillar',
+};
+
 export default function Settings() {
   const tenantId    = useTenantStore((s) => s.tenantId);
   const config      = useConfigStore((s) => s.config);
@@ -67,6 +107,7 @@ export default function Settings() {
   const authUser    = useAuthStore((s) => s.user);
   const addToast    = useToastStore((s) => s.toast);
   const hasFeature  = useFeaturesStore((s) => s.hasFeature);
+  const navigate    = useNavigate();
 
   const isStarter = hasFeature('dashboard_charts');
 
@@ -117,6 +158,16 @@ export default function Settings() {
   const [showCur,    setShowCur]    = useState(false);
   const [showNew,    setShowNew]    = useState(false);
 
+  // Billing tab
+  const [sub,        setSub]        = useState<Subscription | null>(null);
+  const [limits,     setLimits]     = useState<UsageLimits | null>(null);
+  const [subLoading, setSubLoading] = useState(false);
+
+  // Modullar tab
+  const [allModules,      setAllModules]      = useState<string[]>([]);
+  const [activeModules,   setActiveModules]   = useState<Set<string>>(new Set());
+  const [modulesSaving,   setModulesSaving]   = useState(false);
+
   const toastShown = useRef(false);
 
   // ── Load config ───────────────────────────────────────────────────────────
@@ -158,6 +209,50 @@ export default function Settings() {
       })
       .finally(() => setLoading(false));
   }, [tenantId]);
+
+  // Load billing when switching to billing tab
+  useEffect(() => {
+    if (tab !== 'billing' || !tenantId || sub) return;
+    setSubLoading(true);
+    Promise.all([getMySubscription(tenantId), getMyLimits(tenantId)])
+      .then(([s, l]) => { setSub(s); setLimits(l); })
+      .catch(() => {})
+      .finally(() => setSubLoading(false));
+  }, [tab, tenantId]);
+
+  // Load module list when switching to modullar tab
+  useEffect(() => {
+    if (tab !== 'modullar' || !tenantId || allModules.length) return;
+    getWizardConfig(tenantId).then((c) => {
+      const active = new Set(c.modules.filter((m: string) => m !== 'settings'));
+      setActiveModules(active);
+      return getPublicDefaults(c.industry).then((defaults) => {
+        const all = defaults.modules.filter((m: string) => m !== 'settings');
+        const merged = [...new Set([...all, ...active])].filter((m) => m !== 'settings');
+        setAllModules(merged);
+      }).catch(() => {
+        setAllModules(c.modules.filter((m: string) => m !== 'settings'));
+      });
+    }).catch(() => {});
+  }, [tab, tenantId]);
+
+  const handleModulesSave = async () => {
+    setModulesSaving(true);
+    try {
+      await updateWizardConfig(tenantId, { modules: [...activeModules, 'settings'] });
+      await fetchConfig(tenantId);
+      addToast('Modullar saqlandi', 'success');
+    } catch {
+      addToast('Saqlashda xatolik');
+    } finally { setModulesSaving(false); }
+  };
+
+  const toggleActiveModule = (m: string) =>
+    setActiveModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) { next.delete(m); } else { next.add(m); }
+      return next;
+    });
 
   // ── Save helpers ──────────────────────────────────────────────────────────
   const save = async (patch: object) => {
@@ -592,6 +687,141 @@ export default function Settings() {
               <div>Industry: <strong style={{ color: 'var(--text)' }}>{cfg?.industry ?? '—'}</strong></div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── MODULLAR TAB ────────────────────────────────────────────────────── */}
+      {tab === 'modullar' && (
+        <div className="settings-card">
+          <div className="settings-section-title">Faol modullar</div>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+            Yoqilgan modullar navigatsiya menyusida ko'rinadi. Sozlamalar moduli har doim faol.
+          </div>
+
+          {allModules.length === 0 ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Yuklanmoqda...</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              {allModules.map((m) => {
+                const on = activeModules.has(m);
+                return (
+                  <div key={m} className="settings-toggle-row">
+                    <span>{MODULE_LABELS[m] ?? m}</span>
+                    <button
+                      type="button"
+                      className={`settings-toggle${on ? ' on' : ''}`}
+                      onClick={() => toggleActiveModule(m)}
+                    >
+                      <span className="settings-toggle-knob" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="settings-footer">
+            <button className="btn-primary" onClick={handleModulesSave} disabled={modulesSaving}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Save size={14} /> {modulesSaving ? 'Saqlanmoqda...' : 'Saqlash'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── BILLING TAB ─────────────────────────────────────────────────────── */}
+      {tab === 'billing' && (
+        <div className="settings-card" style={{ maxWidth: 560 }}>
+          <div className="settings-section-title">Obuna va billing</div>
+
+          {subLoading ? (
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '1rem 0' }}>Yuklanmoqda...</div>
+          ) : sub ? (
+            <>
+              {/* Plan badge */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '1rem',
+                padding: '1rem 1.25rem', borderRadius: 10,
+                background: sub.plan === 'pro' ? 'rgba(99,102,241,0.08)' : sub.plan === 'starter' ? 'rgba(16,185,129,0.07)' : 'rgba(245,158,11,0.08)',
+                border: `1px solid ${sub.plan === 'pro' ? 'rgba(99,102,241,0.2)' : sub.plan === 'starter' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                marginBottom: '1.5rem',
+              }}>
+                <div style={{
+                  width: 42, height: 42, borderRadius: 10,
+                  background: sub.plan === 'pro' ? '#6366f1' : sub.plan === 'starter' ? '#10b981' : '#f59e0b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <TrendingUp size={20} color="#fff" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {sub.plan === 'trial' ? '14-kunlik sinov' : sub.plan === 'starter' ? 'Starter' : 'Pro'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                    {sub.status === 'trial' && sub.trialEndsAt
+                      ? `Tugash sanasi: ${new Date(sub.trialEndsAt).toLocaleDateString('uz-UZ')}`
+                      : sub.nextPaymentAt
+                      ? `Keyingi to'lov: ${new Date(sub.nextPaymentAt).toLocaleDateString('uz-UZ')}`
+                      : sub.status === 'suspended' ? 'To\'lov to\'xtatilgan' : 'Faol'}
+                  </div>
+                </div>
+                {sub.priceUzs > 0 && (
+                  <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: '1rem' }}>
+                      {sub.priceUzs.toLocaleString()} so'm
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      / {sub.billingCycle === 'monthly' ? 'oy' : 'yil'}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Usage bars */}
+              {limits && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                  {[
+                    { icon: Users, label: 'Xodimlar', current: sub.currentUsers, max: sub.usersLimit, pct: limits.percentages.users },
+                    { icon: Zap,   label: 'API chaqiruvlar', current: sub.currentApiCalls, max: sub.apiCallsLimit, pct: limits.percentages.apiCalls },
+                    { icon: HardDrive, label: 'Saqlash', current: Math.round(sub.storageLimit * (limits.percentages.storage / 100)), max: sub.storageLimit, pct: limits.percentages.storage, unit: 'MB' },
+                  ].map(({ icon: Icon, label, current, max, pct, unit }) => (
+                    <div key={label}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.35rem' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)' }}>
+                          <Icon size={13} /> {label}
+                        </span>
+                        <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                          {current} / {max}{unit ? ` ${unit}` : ''}
+                        </span>
+                      </div>
+                      <div style={{ height: 6, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 99,
+                          background: pct > 85 ? '#ef4444' : pct > 60 ? '#f59e0b' : '#10b981',
+                          width: `${Math.min(pct, 100)}%`, transition: 'width 0.4s',
+                        }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                className="btn-primary"
+                onClick={() => navigate('/subscription')}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <CreditCard size={14} /> Tarifni boshqarish
+              </button>
+            </>
+          ) : (
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Obuna ma'lumotlari yuklanmadi.{' '}
+              <button className="btn-secondary" onClick={() => navigate('/subscription')}>
+                Ko'rish
+              </button>
+            </div>
+          )}
         </div>
       )}
 

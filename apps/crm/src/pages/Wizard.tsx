@@ -239,6 +239,7 @@ export default function Wizard() {
   const [selectedIndustry, setSelectedIndustry] = useState<IndustryKey | null>(null);
   const [companyName,      setCompanyName]       = useState('');
   const [companyPhone,     setCompanyPhone]      = useState('');
+  const [selectedModules,  setSelectedModules]   = useState<Set<string>>(new Set());
 
   // Guard: no tenantId → can't proceed
   useEffect(() => {
@@ -275,7 +276,7 @@ export default function Wizard() {
       await submitWizardSetup({
         tenantId,
         industry:            industry.key,
-        modules:             [...industry.modules],
+        modules:             [...selectedModules, 'settings'],
         roles:               [...industry.roles],
         companyName:         companyName.trim(),
         companyPhone:        companyPhone.trim(),
@@ -345,14 +346,19 @@ export default function Wizard() {
   };
 
   const handleSelectIndustry = (key: IndustryKey) => {
+    const ind = INDUSTRIES.find((i) => i.key === key);
     setSelectedIndustry(key);
-    // Clear pending auto-advance
+    setSelectedModules(new Set(ind?.modules.filter((m) => m !== 'settings') ?? []));
     if (autoAdvRef.current) clearTimeout(autoAdvRef.current);
-    // Auto-advance to step 2 after 650ms for a smooth guided experience
-    autoAdvRef.current = setTimeout(() => {
-      setStep(2);
-    }, 650);
+    autoAdvRef.current = setTimeout(() => { setStep(2); }, 650);
   };
+
+  const toggleModule = (m: string) =>
+    setSelectedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) { next.delete(m); } else { next.add(m); }
+      return next;
+    });
 
   const canNext = () => {
     if (step === 1) return selectedIndustry !== null;
@@ -362,10 +368,12 @@ export default function Wizard() {
 
   const activeIndustry = INDUSTRIES.find((i) => i.key === selectedIndustry);
 
-  // Modules to display in step 2 (exclude settings — always on)
+  // All possible modules for the selected industry (excluding 'settings')
   const visibleModules = activeIndustry
     ? activeIndustry.modules.filter((m) => m !== 'settings')
     : [];
+  // Modules user has actually selected (for success screen)
+  const chosenModules = visibleModules.filter((m) => selectedModules.has(m));
 
   return (
     <div className="wz-page">
@@ -441,16 +449,18 @@ export default function Wizard() {
         {/* Sidebar module preview (step 2+) */}
         {activeIndustry && step >= 2 && !done && (
           <div className="wz-sidebar-modules">
-            <div className="wz-sidebar-modules-title">Sizning modullar</div>
-            {visibleModules.slice(0, 6).map((m) => (
+            <div className="wz-sidebar-modules-title">
+              Tanlangan ({chosenModules.length})
+            </div>
+            {chosenModules.slice(0, 6).map((m) => (
               <div key={m} className="wz-sidebar-module-item">
                 <CheckCircle2 size={10} style={{ color: activeIndustry.color, flexShrink: 0 }} />
                 <span>{MODULE_LABELS[m] ?? m}</span>
               </div>
             ))}
-            {visibleModules.length > 6 && (
+            {chosenModules.length > 6 && (
               <div className="wz-sidebar-module-item" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                + {visibleModules.length - 6} ta yana
+                + {chosenModules.length - 6} ta yana
               </div>
             )}
           </div>
@@ -504,7 +514,7 @@ export default function Wizard() {
               {/* Module list */}
               {activeIndustry && (
                 <div className="wz-success-modules">
-                  {visibleModules.map((m) => (
+                  {chosenModules.map((m) => (
                     <div key={m} className="wz-success-module-item">
                       <CheckCircle2 size={11} style={{ color: '#10b981', flexShrink: 0 }} />
                       <span>{MODULE_LABELS[m] ?? m}</span>
@@ -671,17 +681,51 @@ export default function Wizard() {
                   </div>
                 )}
 
-                {/* Module list — user sees what they're getting */}
+                {/* Module selection — user toggles what they want */}
                 {visibleModules.length > 0 && (
                   <div className="wz-mod-list">
-                    <div className="wz-mod-list-title">Ulangan modullar</div>
+                    <div className="wz-mod-list-title" style={{ marginBottom: '0.5rem' }}>
+                      Modullarni tanlang
+                      <span style={{ fontWeight: 400, color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', marginLeft: '0.5rem' }}>
+                        ({selectedModules.size} ta tanlangan)
+                      </span>
+                    </div>
                     <div className="wz-mod-list-grid">
-                      {visibleModules.map((m) => (
-                        <div key={m} className="wz-mod-list-item">
-                          <CheckCircle2 size={11} style={{ color: activeIndustry?.color ?? '#10b981', flexShrink: 0 }} />
-                          <span>{MODULE_LABELS[m] ?? m}</span>
-                        </div>
-                      ))}
+                      {visibleModules.map((m) => {
+                        const on = selectedModules.has(m);
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            className="wz-mod-list-item"
+                            onClick={() => toggleModule(m)}
+                            style={{
+                              cursor: 'pointer',
+                              background: on ? `${activeIndustry?.color ?? '#10b981'}1a` : 'rgba(255,255,255,0.04)',
+                              border: `1px solid ${on ? (activeIndustry?.color ?? '#10b981') + '60' : 'rgba(255,255,255,0.1)'}`,
+                              borderRadius: 8, padding: '0.45rem 0.65rem',
+                              width: '100%', textAlign: 'left',
+                              display: 'flex', alignItems: 'center', gap: '0.45rem',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            <span style={{
+                              width: 14, height: 14, borderRadius: 4, flexShrink: 0,
+                              background: on ? (activeIndustry?.color ?? '#10b981') : 'rgba(255,255,255,0.1)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'background 0.15s',
+                            }}>
+                              {on && <CheckCircle2 size={9} color="#fff" />}
+                            </span>
+                            <span style={{ fontSize: '0.82rem', color: on ? '#fff' : 'rgba(255,255,255,0.5)' }}>
+                              {MODULE_LABELS[m] ?? m}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: '0.71rem', color: 'rgba(255,255,255,0.3)', marginTop: '0.5rem' }}>
+                      Sozlamalar moduli har doim yoqilgan holda qoladi
                     </div>
                   </div>
                 )}
