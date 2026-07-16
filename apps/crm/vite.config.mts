@@ -7,7 +7,14 @@ export default defineConfig(() => ({
   cacheDir: '../../node_modules/.vite/apps/crm',
   server: {
     port: 4300,
-    host: 'localhost',
+    host: '0.0.0.0',
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     port: 4300,

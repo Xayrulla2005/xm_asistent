@@ -1,15 +1,15 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Pencil, Trash2, ShieldOff, ShieldCheck } from 'lucide-react';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/auth.store';
-
-type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'warehouse';
+import { useConfigStore } from '../stores/config.store';
 
 interface Employee {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
-  role: EmployeeRole;
+  role: string;
   isActive: boolean;
   tenantId: string;
   createdAt: string;
@@ -20,35 +20,59 @@ interface FormData {
   lastName: string;
   email: string;
   password: string;
-  role: EmployeeRole;
+  role: string;
 }
 
-const ROLE_META: Record<EmployeeRole, { label: string; color: string; bg: string }> = {
-  admin:     { label: 'Admin',    color: '#7c3aed', bg: '#ede9fe' },
-  manager:   { label: 'Menejer', color: '#1d4ed8', bg: '#dbeafe' },
-  cashier:   { label: 'Kassir',  color: '#059669', bg: '#d1fae5' },
-  warehouse: { label: 'Sklad',   color: '#d97706', bg: '#fef3c7' },
+const ALL_ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
+  admin:            { label: 'Admin',              color: '#7c3aed', bg: '#ede9fe' },
+  manager:          { label: 'Menejer',            color: '#1d4ed8', bg: '#dbeafe' },
+  cashier:          { label: 'Kassir',             color: '#059669', bg: '#d1fae5' },
+  warehouse:        { label: 'Sklad',              color: '#d97706', bg: '#fef3c7' },
+  warehouse_manager:{ label: 'Sklad xodimi',       color: '#b45309', bg: '#fef3c7' },
+  accountant:       { label: 'Buxgalter',          color: '#0891b2', bg: '#e0f2fe' },
+  sales_manager:    { label: 'Sotuv menejeri',     color: '#2563eb', bg: '#dbeafe' },
+  courier:          { label: 'Kuryer',             color: '#16a34a', bg: '#dcfce7' },
+  doctor:           { label: 'Shifokor',           color: '#dc2626', bg: '#fee2e2' },
+  nurse:            { label: 'Hamshira',           color: '#db2777', bg: '#fce7f3' },
+  receptionist:     { label: 'Qabul',              color: '#7c3aed', bg: '#f3e8ff' },
+  pharmacist:       { label: 'Dorixonachi',        color: '#059669', bg: '#d1fae5' },
+  lab_technician:   { label: 'Laborant',           color: '#0284c7', bg: '#e0f2fe' },
+  teacher:          { label: "O'qituvchi",         color: '#ca8a04', bg: '#fef9c3' },
+  curator:          { label: 'Kurator',            color: '#7c3aed', bg: '#ede9fe' },
+  waiter:           { label: 'Ofitsiant',          color: '#ea580c', bg: '#ffedd5' },
+  cook:             { label: 'Oshpaz',             color: '#d97706', bg: '#fef3c7' },
+  delivery_courier: { label: 'Yetkazib beruvchi',  color: '#16a34a', bg: '#dcfce7' },
 };
+
+function roleMeta(role: string) {
+  return ALL_ROLE_META[role] ?? { label: role, color: '#64748b', bg: '#f1f5f9' };
+}
 
 const EMPTY_FORM: FormData = {
   firstName: '', lastName: '', email: '', password: '', role: 'cashier',
 };
 
 export default function Employees() {
-  const user = useAuthStore((s) => s.user);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editTarget, setEditTarget] = useState<Employee | null>(null);
-  const [form, setForm]           = useState<FormData>(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
-  const [formError, setFormError]  = useState('');
-  const [openMenu, setOpenMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const user   = useAuthStore((s) => s.user);
+  const config = useConfigStore((s) => s.config);
+
+  const [employees, setEmployees]       = useState<Employee[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
+  const [showModal, setShowModal]       = useState(false);
+  const [editTarget, setEditTarget]     = useState<Employee | null>(null);
+  const [form, setForm]                 = useState<FormData>(EMPTY_FORM);
+  const [submitting, setSubmitting]     = useState(false);
+  const [formError, setFormError]       = useState('');
+  const [openMenu, setOpenMenu]         = useState<{ id: string; x: number; y: number } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ employeeId: string; employeeName: string } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const canManage = user?.role === 'admin' || user?.role === 'manager';
+
+  // Wizard konfiguratsiyasidagi rollar (admin tashqari)
+  const availableRoles = (config?.roles ?? ['cashier', 'manager', 'warehouse_manager', 'accountant'])
+    .filter((r) => r !== 'admin');
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -76,7 +100,7 @@ export default function Employees() {
 
   const openCreate = () => {
     setEditTarget(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, role: availableRoles[0] ?? 'cashier' });
     setFormError('');
     setShowModal(true);
   };
@@ -130,10 +154,9 @@ export default function Employees() {
 
   const deleteEmployee = async () => {
     if (!confirmModal) return;
-    const { employeeId } = confirmModal;
     try {
-      await api.delete(`/employees/${employeeId}`);
-      setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
+      await api.delete(`/employees/${confirmModal.employeeId}`);
+      setEmployees((prev) => prev.filter((e) => e.id !== confirmModal.employeeId));
       setConfirmModal(null);
     } catch { /* silent */ }
   };
@@ -155,96 +178,100 @@ export default function Employees() {
       {!loading && !error && (
         <div className="table-wrap">
           <div style={{ overflowX: 'auto' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Ism Familiya</th>
-                <th>Email</th>
-                <th>Lavozim</th>
-                <th>Holat</th>
-                <th className="col-date">Kirilgan</th>
-                {canManage && <th>Amallar</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {employees.length === 0 ? (
+            <table className="table">
+              <thead>
                 <tr>
-                  <td colSpan={canManage ? 6 : 5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
-                    Hech qanday xodim topilmadi
-                  </td>
+                  <th>#</th>
+                  <th>Ism Familiya</th>
+                  <th>Email</th>
+                  <th>Lavozim</th>
+                  <th>Holat</th>
+                  <th className="col-date">Qo'shilgan</th>
+                  {canManage && <th>Amallar</th>}
                 </tr>
-              ) : employees.map((emp) => {
-                const rm = ROLE_META[emp.role] ?? ROLE_META.cashier;
-                return (
-                  <tr key={emp.id} style={{ opacity: emp.isActive ? 1 : 0.55 }}>
-                    <td style={{ fontWeight: 600 }}>
-                      {emp.firstName} {emp.lastName}
+              </thead>
+              <tbody>
+                {employees.length === 0 ? (
+                  <tr>
+                    <td colSpan={canManage ? 7 : 6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>
+                      Hech qanday xodim topilmadi
                     </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{emp.email}</td>
-                    <td>
-                      <span style={{
-                        display: 'inline-block', padding: '0.2rem 0.65rem',
-                        borderRadius: 6, fontSize: '0.76rem', fontWeight: 600,
-                        color: rm.color, background: rm.bg,
-                      }}>
-                        {rm.label}
-                      </span>
-                    </td>
-                    <td>
-                      {canManage ? (
-                        <button
-                          className={`status-toggle status-toggle--${emp.isActive ? 'active' : 'inactive'}`}
-                          onClick={() => toggleActive(emp)}
-                        >
-                          {emp.isActive ? '● Faol' : '● Bloklangan'}
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: '0.85rem', color: emp.isActive ? '#059669' : '#dc2626' }}>
-                          {emp.isActive ? '● Faol' : '● Bloklangan'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="col-date" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {new Date(emp.createdAt).toLocaleDateString('uz-UZ')}
-                    </td>
-                    {canManage && (
+                  </tr>
+                ) : employees.map((emp, idx) => {
+                  const rm = roleMeta(emp.role);
+                  return (
+                    <tr key={emp.id} style={{ opacity: emp.isActive ? 1 : 0.55 }}>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{idx + 1}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {emp.firstName} {emp.lastName}
+                      </td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{emp.email}</td>
                       <td>
-                        <button
-                          className="dots-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (openMenu?.id === emp.id) { setOpenMenu(null); return; }
-                            const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                            setOpenMenu({ id: emp.id, x: rect.right - 180, y: rect.bottom + 4 });
-                          }}
-                        >
-                          ⋯
-                        </button>
-                        {openMenu?.id === emp.id && (
-                          <div
-                            className="dots-menu"
-                            ref={menuRef}
-                            style={{ top: openMenu.y, left: openMenu.x }}
-                            onClick={(e) => e.stopPropagation()}
+                        <span style={{
+                          display: 'inline-block', padding: '0.2rem 0.65rem',
+                          borderRadius: 6, fontSize: '0.76rem', fontWeight: 600,
+                          color: rm.color, background: rm.bg,
+                        }}>
+                          {rm.label}
+                        </span>
+                      </td>
+                      <td>
+                        {canManage ? (
+                          <button
+                            className={`status-toggle status-toggle--${emp.isActive ? 'active' : 'inactive'}`}
+                            onClick={() => toggleActive(emp)}
                           >
-                            <button className="dots-menu-item" onClick={() => { openEdit(emp); setOpenMenu(null); }}>
-                              ✏️ Tahrirlash
-                            </button>
-                            <button className="dots-menu-item" onClick={() => { toggleActive(emp); setOpenMenu(null); }}>
-                              {emp.isActive ? '🔴 Bloklash' : '🟢 Faollashtirish'}
-                            </button>
-                            <button className="dots-menu-item dots-menu-item--danger" onClick={() => { openConfirmDelete(emp); setOpenMenu(null); }}>
-                              🗑️ O'chirish
-                            </button>
-                          </div>
+                            {emp.isActive ? '● Faol' : '● Bloklangan'}
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.85rem', color: emp.isActive ? '#059669' : '#dc2626' }}>
+                            {emp.isActive ? '● Faol' : '● Bloklangan'}
+                          </span>
                         )}
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="col-date" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        {new Date(emp.createdAt).toLocaleDateString('uz-UZ')}
+                      </td>
+                      {canManage && (
+                        <td>
+                          <button
+                            className="dots-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openMenu?.id === emp.id) { setOpenMenu(null); return; }
+                              const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                              setOpenMenu({ id: emp.id, x: rect.right - 180, y: rect.bottom + 4 });
+                            }}
+                          >
+                            ⋯
+                          </button>
+                          {openMenu?.id === emp.id && (
+                            <div
+                              className="dots-menu"
+                              ref={menuRef}
+                              style={{ top: openMenu.y, left: openMenu.x }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button className="dots-menu-item" onClick={() => { openEdit(emp); setOpenMenu(null); }}>
+                                <Pencil size={13} style={{ marginRight: 6 }} />Tahrirlash
+                              </button>
+                              <button className="dots-menu-item" onClick={() => { toggleActive(emp); setOpenMenu(null); }}>
+                                {emp.isActive
+                                  ? <><ShieldOff size={13} style={{ marginRight: 6 }} />Bloklash</>
+                                  : <><ShieldCheck size={13} style={{ marginRight: 6 }} />Faollashtirish</>}
+                              </button>
+                              <button className="dots-menu-item dots-menu-item--danger" onClick={() => { openConfirmDelete(emp); setOpenMenu(null); }}>
+                                <Trash2 size={13} style={{ marginRight: 6 }} />O'chirish
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -308,23 +335,23 @@ export default function Employees() {
               </div>
 
               <div className="field">
-                <label>{editTarget ? 'Yangi parol (ixtiyoriy)' : 'Parol *'}</label>
+                <label>{editTarget ? "Yangi parol (ixtiyoriy)" : 'Parol *'}</label>
                 <input
                   type="password"
                   required={!editTarget}
                   minLength={6}
                   value={form.password}
                   onChange={(e) => set({ password: e.target.value })}
-                  placeholder={editTarget ? 'O\'zgartirmaslik uchun bo\'sh qoldiring' : 'Kamida 6 ta belgi'}
+                  placeholder={editTarget ? "O'zgartirmaslik uchun bo'sh qoldiring" : 'Kamida 6 ta belgi'}
                 />
               </div>
 
               <div className="field">
                 <label>Lavozim *</label>
-                <select value={form.role} onChange={(e) => set({ role: e.target.value as EmployeeRole })}>
-                  <option value="manager">Menejer</option>
-                  <option value="cashier">Kassir</option>
-                  <option value="warehouse">Sklad xodimi</option>
+                <select value={form.role} onChange={(e) => set({ role: e.target.value })}>
+                  {availableRoles.map((r) => (
+                    <option key={r} value={r}>{roleMeta(r).label}</option>
+                  ))}
                 </select>
               </div>
 
@@ -333,7 +360,7 @@ export default function Employees() {
                   Bekor
                 </button>
                 <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Saqlanmoqda...' : (editTarget ? 'Saqlash' : 'Qo\'shish')}
+                  {submitting ? 'Saqlanmoqda...' : (editTarget ? 'Saqlash' : "Qo'shish")}
                 </button>
               </div>
             </form>

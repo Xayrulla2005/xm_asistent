@@ -3,13 +3,6 @@ import {
   PrimaryGeneratedColumn, UpdateDateColumn,
 } from 'typeorm';
 
-export enum EmployeeRole {
-  ADMIN     = 'admin',
-  MANAGER   = 'manager',
-  CASHIER   = 'cashier',
-  WAREHOUSE = 'warehouse',
-}
-
 @Entity('employees')
 export class Employee {
   @PrimaryGeneratedColumn('uuid')
@@ -27,8 +20,8 @@ export class Employee {
   @Column()
   password: string;
 
-  @Column({ type: 'enum', enum: EmployeeRole, default: EmployeeRole.CASHIER })
-  role: EmployeeRole;
+  @Column({ type: 'varchar', default: 'cashier' })
+  role: string;
 
   @Column({ default: true })
   isActive: boolean;

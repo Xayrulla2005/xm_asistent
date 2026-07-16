@@ -9,4 +9,12 @@ export class UpdateBugDto {
   @IsOptional()
   @IsString()
   assignedTo?: string;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @IsOptional()
+  @IsString()
+  resolutionNote?: string;
 }

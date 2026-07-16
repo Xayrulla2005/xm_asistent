@@ -14,8 +14,8 @@ import { useTenantStore } from '../stores/tenant.store';
 const fmt = (n: number) => n.toLocaleString('uz-UZ') + " so'm";
 
 const TYPE_MAP: Record<WarehouseLogType, { label: string; cls: string; color: string }> = {
-  income:  { label: '📥 Kirim', cls: 'badge--active',   color: '#10b981' },
-  expense: { label: '📤 Chiqim', cls: 'badge--inactive', color: '#ef4444' },
+  income:  { label: 'Kirim', cls: 'badge--active',   color: '#10b981' },
+  expense: { label: 'Chiqim', cls: 'badge--inactive', color: '#ef4444' },
 };
 
 type FilterType = 'all' | WarehouseLogType;
@@ -113,28 +113,28 @@ export default function Warehouse() {
   return (
     <div className="page">
       <div className="page-header">
-        <h2 className="page-title">🏪 Sklad</h2>
+        <h2 className="page-title">Sklad</h2>
         <button className="btn-primary" onClick={openModal}>+ Kirim qo'shish</button>
       </div>
 
       {/* Stat cards */}
       <div className="stat-grid" style={{ marginBottom: '1.25rem' }}>
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#10b98120', color: '#10b981' }}>📥</div>
+          <div className="stat-icon" style={{ background: '#10b98120', color: '#10b981' }}></div>
           <div className="stat-info">
             <p className="stat-label">Jami kirim</p>
             <p className="stat-value">{stats ? fmt(stats.totalIncome) : '—'}</p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#ef444420', color: '#ef4444' }}>📤</div>
+          <div className="stat-icon" style={{ background: '#ef444420', color: '#ef4444' }}></div>
           <div className="stat-info">
             <p className="stat-label">Jami chiqim</p>
             <p className="stat-value">{stats ? fmt(stats.totalExpense) : '—'}</p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#f59e0b20', color: '#f59e0b' }}>⚠️</div>
+          <div className="stat-icon" style={{ background: '#f59e0b20', color: '#f59e0b' }}></div>
           <div className="stat-info">
             <p className="stat-label">Kam qolgan</p>
             <p className="stat-value">{stats ? `${stats.lowStockCount} xil` : '—'}</p>
@@ -146,8 +146,8 @@ export default function Warehouse() {
       <div className="filter-tabs">
         {([
           { key: 'all',     label: 'Barchasi' },
-          { key: 'income',  label: '📥 Kirim' },
-          { key: 'expense', label: '📤 Chiqim' },
+          { key: 'income',  label: 'Kirim' },
+          { key: 'expense', label: 'Chiqim' },
         ] as const).map((f) => (
           <button
             key={f.key}
@@ -211,7 +211,7 @@ export default function Warehouse() {
           {lowStock.length > 0 && (
             <div style={{ marginTop: '2rem' }}>
               <h3 style={{ color: '#f59e0b', marginBottom: '0.75rem', fontSize: '0.95rem', fontWeight: 700 }}>
-                ⚠️ Kam qolgan mahsulotlar ({lowStock.length} xil)
+                Kam qolgan mahsulotlar ({lowStock.length} xil)
               </h3>
               <div className="table-wrap" style={{ border: '1px solid #f59e0b40', borderRadius: '10px' }}>
                 <table className="table">
@@ -281,8 +281,8 @@ export default function Warehouse() {
                   value={form.type}
                   onChange={(e) => setForm({ ...form, type: e.target.value as WarehouseLogType })}
                 >
-                  <option value="income">📥 Kirim</option>
-                  <option value="expense">📤 Chiqim</option>
+                  <option value="income">Kirim</option>
+                  <option value="expense">Chiqim</option>
                 </select>
               </div>
 

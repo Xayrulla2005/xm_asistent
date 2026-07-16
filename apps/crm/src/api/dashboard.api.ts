@@ -67,3 +67,9 @@ export const getDashboardStats = (_tenantId: string, date: string) =>
   api
     .get<DashboardStats>('/dashboard/stats', { params: { date } })
     .then((r) => r.data);
+
+// Industry-specific stats (restaurant / clinic / education / fitness / gym)
+export const getIndustryDashboardStats = (industry: string) =>
+  api
+    .get<Record<string, unknown>>('/dashboard/industry-stats', { params: { industry } })
+    .then((r) => r.data);

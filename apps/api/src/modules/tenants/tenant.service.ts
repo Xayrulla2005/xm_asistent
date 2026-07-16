@@ -19,7 +19,6 @@ export class TenantService {
   constructor(
     @InjectRepository(Tenant)         private readonly repo: Repository<Tenant>,
     @InjectRepository(WizardConfig)   private readonly wizardRepo: Repository<WizardConfig>,
-    @InjectRepository(GeneratedCrm)   private readonly generatedCrmRepo: Repository<GeneratedCrm>,
     @InjectRepository(Sale)           private readonly saleRepo: Repository<Sale>,
     @InjectRepository(Product)        private readonly productRepo: Repository<Product>,
     @InjectRepository(Customer)       private readonly customerRepo: Repository<Customer>,
@@ -51,6 +50,26 @@ export class TenantService {
     }));
   }
 
+  async findPublic() {
+    const [tenants, wizardConfigs] = await Promise.all([
+      this.repo.find({ where: { isActive: true }, order: { createdAt: 'DESC' } }),
+      this.wizardRepo.find(),
+    ]);
+    const wcMap = new Map(wizardConfigs.map((wc) => [wc.tenantId, wc]));
+    return tenants.map((t) => {
+      const wc = wcMap.get(t.id);
+      return {
+        id:           t.id,
+        name:         t.name,
+        slug:         t.slug,
+        industry:     wc?.industry ?? null,
+        logoUrl:      wc?.logoUrl ?? null,
+        primaryColor: (wc?.theme as Record<string, unknown> | undefined)?.['primaryColor'] as string | null ?? null,
+        shopName:     (wc?.theme as Record<string, unknown> | undefined)?.['shopName'] as string | null ?? t.name,
+      };
+    });
+  }
+
   async findOne(id: string): Promise<Tenant> {
     const tenant = await this.repo.findOne({ where: { id } });
     if (!tenant) throw new NotFoundException(`Tenant #${id} topilmadi`);
@@ -63,7 +82,7 @@ export class TenantService {
     const [
       wizardConfig, totalSales, totalProducts, totalCustomers,
       revenueRaw, monthlyRevenueRaw, lastSale,
-      weeklyRaw, topProductsRaw, paymentRaw,
+      weeklyRaw, topProductsRaw, paymentRaw, employeeRaw,
     ] = await Promise.all([
       this.wizardRepo.findOne({ where: { tenantId: id } }),
       this.saleRepo.count({ where: { tenantId: id } }),
@@ -104,6 +123,10 @@ export class TenantService {
          WHERE "tenantId" = $1 GROUP BY "paymentType"`,
         [id],
       ),
+      this.dataSource.query<{ cnt: string }[]>(
+        `SELECT COUNT(id)::int AS cnt FROM employees WHERE "tenantId" = $1`,
+        [id],
+      ),
     ]);
 
     const totalRevenue     = Number(revenueRaw[0]?.total ?? 0);
@@ -126,6 +149,7 @@ export class TenantService {
       wizardConfig: wizardConfig ?? null,
       stats: {
         totalSales, totalRevenue, totalProducts, totalCustomers,
+        totalEmployees: Number(employeeRaw[0]?.cnt ?? 0),
         avgOrderValue, monthlyRevenue, lastActivity: lastSale?.createdAt ?? null,
         weeklyChart, topProducts, paymentBreakdown,
       },
@@ -142,14 +166,48 @@ export class TenantService {
 
   async remove(id: string): Promise<void> {
     await this.findOne(id);
-    await Promise.all([
-      this.wizardRepo.delete({ tenantId: id }),
-      this.generatedCrmRepo.delete({ tenantId: id }),
-      this.saleRepo.delete({ tenantId: id }),
-      this.productRepo.delete({ tenantId: id }),
-      this.customerRepo.delete({ tenantId: id }),
-    ]);
-    await this.repo.delete(id);
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      // branch_transfers has FK → branches (SET NULL), delete transfers first
+      await qr.query(`DELETE FROM branch_transfers WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM branches WHERE "tenantId" = $1`, [id]);
+
+      // billing
+      await qr.query(`DELETE FROM payment_history WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM subscriptions WHERE "tenantId" = $1`, [id]);
+
+      // sales & inventory
+      await qr.query(`DELETE FROM sale_returns WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM inventory_movements WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM warehouse_logs WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM payments WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM debts WHERE "tenantId" = $1`, [id]);
+      await qr.manager.delete(Sale, { tenantId: id });
+
+      // crm data
+      await qr.manager.delete(Customer, { tenantId: id });
+      await qr.manager.delete(Product, { tenantId: id });
+      await qr.query(`DELETE FROM employees WHERE "tenantId" = $1`, [id]);
+      await qr.query(`DELETE FROM audit_logs WHERE "tenantId" = $1`, [id]);
+
+      // config
+      await qr.manager.delete(WizardConfig, { tenantId: id });
+      await qr.manager.delete(GeneratedCrm, { tenantId: id });
+
+      // unlink users, then delete tenant
+      await qr.query(`UPDATE users SET "tenantId" = NULL WHERE "tenantId" = $1`, [id]);
+      await qr.manager.delete(Tenant, { id });
+
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
   }
 
   async createTenantSchema(slug: string): Promise<void> {

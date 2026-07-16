@@ -17,7 +17,7 @@ export class WarehouseService {
   ) {}
 
   async create(dto: CreateWarehouseLogDto): Promise<WarehouseLog> {
-    const product = await this.productRepo.findOne({ where: { id: dto.productId } });
+    const product = await this.productRepo.findOne({ where: { id: dto.productId, tenantId: dto.tenantId } });
     if (!product) throw new NotFoundException('Mahsulot topilmadi');
 
     if (dto.type === WarehouseLogType.EXPENSE && product.quantity < dto.quantity) {

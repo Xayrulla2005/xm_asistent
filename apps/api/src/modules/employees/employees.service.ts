@@ -18,7 +18,7 @@ export class EmployeesService {
 
   async create(tenantId: string, dto: CreateEmployeeDto) {
     if (!tenantId) throw new ForbiddenException('Tenant kerak');
-    const exists = await this.repo.findOne({ where: { email: dto.email } });
+    const exists = await this.repo.findOne({ where: { email: dto.email, tenantId } });
     if (exists) throw new ConflictException('Bu email allaqachon band');
     const hashed = await bcrypt.hash(dto.password, 10);
     const emp = this.repo.create({ ...dto, password: hashed, tenantId });

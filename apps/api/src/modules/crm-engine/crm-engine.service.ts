@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { WizardService } from '../wizard/wizard.service';
 import { WizardConfig } from '../wizard/entities/wizard-config.entity';
 import { GeneratedCrm, GeneratedCrmStatus } from './entities/generated-crm.entity';
+import { Tenant } from '../tenants/entities/tenant.entity';
 
 // ─── Nav labels ──────────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ const NAV_LABELS: Record<string, string> = {
   customers:       'Mijozlar',
   payments:        "To'lovlar",
   deliveries:      'Yetkazib berish',
-  reports:         'Hisobotlar',
+  reports:         'Statistika',
   loyalty:         'Sodiqlik dasturi',
   suppliers:       "Ta'minotchilar",
   products:        'Mahsulotlar',
@@ -22,6 +23,8 @@ const NAV_LABELS: Record<string, string> = {
   appointments:    'Qabullar',
   doctors:         'Shifokorlar',
   pharmacy:        'Dorixona',
+  prescriptions:   'Retseptlar',
+  edu_payments:    "Oylik to'lovlar",
   lab:             'Laboratoriya',
   medical_records: 'Tibbiy kartalar',
   students:        "O'quvchilar",
@@ -37,6 +40,14 @@ const NAV_LABELS: Record<string, string> = {
   tables:          'Stollar',
   delivery:        'Yetkazib berish',
   reservations:    'Bronlar',
+  gym_members:             "A'zolar",
+  gym_plans:               'Obuna rejalari',
+  gym_checkin:             'Kirish nazorati',
+  beauty_appointments:     'Qabullar',
+  beauty_masters:          'Masterlar',
+  beauty_services_catalog: 'Xizmatlar',
+  auto_orders:             'Buyurtmalar',
+  auto_vehicles:           'Avtomobillar',
 };
 
 // ─── Permission types ─────────────────────────────────────────────────────────
@@ -98,7 +109,7 @@ const INDUSTRY_ROLE_PERMS: Record<string, Record<string, RolePermDef>> = {
       actions: ['read', 'create', 'update', 'delete'],
     },
     doctor: {
-      modules: ['patients', 'appointments', 'medical_records'],
+      modules: ['patients', 'appointments', 'medical_records', 'prescriptions'],
       actions: ['read', 'create', 'update'],
       denied:  ['delete', 'payments', 'pharmacy', 'lab'],
     },
@@ -108,12 +119,12 @@ const INDUSTRY_ROLE_PERMS: Record<string, Record<string, RolePermDef>> = {
       denied:  ['delete', 'update', 'medical_records', 'payments'],
     },
     receptionist: {
-      modules: ['appointments', 'patients', 'payments'],
+      modules: ['appointments', 'patients', 'prescriptions'],
       actions: ['read', 'create'],
       denied:  ['delete', 'update', 'medical_records'],
     },
     pharmacist: {
-      modules: ['pharmacy'],
+      modules: ['pharmacy', 'prescriptions'],
       actions: ['read', 'create', 'update'],
       denied:  ['delete', 'patients', 'appointments'],
     },
@@ -137,22 +148,83 @@ const INDUSTRY_ROLE_PERMS: Record<string, Record<string, RolePermDef>> = {
     teacher: {
       modules: ['students', 'attendance', 'exams', 'courses', 'schedule'],
       actions: ['read', 'create', 'update'],
-      denied:  ['delete', 'payments', 'certificates'],
+      denied:  ['delete', 'edu_payments', 'certificates'],
     },
     receptionist: {
-      modules: ['students', 'payments', 'schedule'],
+      modules: ['students', 'edu_payments', 'schedule'],
       actions: ['read', 'create'],
       denied:  ['delete', 'update', 'exams', 'attendance'],
     },
     accountant: {
-      modules: ['payments', 'reports'],
+      modules: ['edu_payments', 'reports'],
       actions: ['read'],
       denied:  ['create', 'update', 'delete'],
     },
     curator: {
       modules: ['students', 'attendance', 'courses', 'certificates'],
       actions: ['read', 'create', 'update'],
-      denied:  ['delete', 'payments', 'exams'],
+      denied:  ['delete', 'edu_payments', 'exams'],
+    },
+  },
+
+  fitness: {
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    trainer: {
+      modules: ['gym_members', 'gym_checkin'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'gym_plans', 'reports'],
+    },
+    receptionist: {
+      modules: ['gym_members', 'gym_checkin', 'gym_plans'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'reports'],
+    },
+    accountant: {
+      modules: ['reports', 'gym_plans'],
+      actions: ['read'],
+      denied:  ['create', 'update', 'delete'],
+    },
+  },
+
+  beauty: {
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    cashier: {
+      modules: ['beauty_appointments', 'beauty_masters', 'beauty_services_catalog', 'customers'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'reports', 'settings'],
+    },
+    receptionist: {
+      modules: ['beauty_appointments', 'customers'],
+      actions: ['read', 'create'],
+      denied:  ['delete', 'update', 'beauty_masters', 'beauty_services_catalog'],
+    },
+  },
+
+  auto: {
+    admin: {
+      modules: ['*'],
+      actions: ['read', 'create', 'update', 'delete'],
+    },
+    mechanic: {
+      modules: ['auto_orders', 'auto_vehicles'],
+      actions: ['read', 'update'],
+      denied:  ['create', 'delete', 'customers', 'warehouse', 'reports'],
+    },
+    receptionist: {
+      modules: ['auto_orders', 'auto_vehicles', 'customers'],
+      actions: ['read', 'create', 'update'],
+      denied:  ['delete', 'warehouse', 'reports'],
+    },
+    accountant: {
+      modules: ['reports', 'auto_orders'],
+      actions: ['read'],
+      denied:  ['create', 'update', 'delete'],
     },
   },
 
@@ -197,6 +269,7 @@ export interface CrmConfig {
   industry: string;
   modules: string[];
   roles: string[];
+  currency: string;
   theme: {
     shopName?: string;
     address?: string;
@@ -209,6 +282,7 @@ export interface CrmConfig {
   navigation: { key: string; label: string; path: string }[];
   permissions: Record<string, RolePermission>;
   generatedAt: Date;
+  customerLevels?: { name: string; minAmount: number; color: string }[] | null;
 }
 
 // ─── Service ──────────────────────────────────────────────────────────────────
@@ -218,14 +292,16 @@ export class CrmEngineService {
   constructor(
     @InjectRepository(GeneratedCrm)
     private readonly repo: Repository<GeneratedCrm>,
+    @InjectRepository(Tenant)
+    private readonly tenantRepo: Repository<Tenant>,
     private readonly wizardService: WizardService,
   ) {}
 
-  generateCRM(wizardConfig: WizardConfig): CrmConfig {
+  generateCRM(wizardConfig: WizardConfig, tenantSlug?: string): CrmConfig {
     const { tenantId, industry, modules, roles, theme } = wizardConfig;
     const t = (theme ?? {}) as Record<string, unknown>;
 
-    const slug = tenantId.replace(/-/g, '').slice(0, 12);
+    const slug = tenantSlug ?? tenantId.replace(/-/g, '').slice(0, 12);
 
     const navigation = modules.map((key) => ({
       key,
@@ -261,6 +337,7 @@ export class CrmEngineService {
       industry,
       modules,
       roles,
+      currency: wizardConfig.currency ?? 'uzs',
       theme: {
         shopName:     t.shopName     as string  ?? '',
         address:      t.address      as string  ?? '',
@@ -273,12 +350,62 @@ export class CrmEngineService {
       navigation,
       permissions,
       generatedAt: new Date(),
+      customerLevels: wizardConfig.customerLevels ?? null,
+    };
+  }
+
+  private defaultCrmConfig(tenantId: string, tenantSlug?: string): CrmConfig {
+    const slug = tenantSlug ?? tenantId.replace(/-/g, '').slice(0, 12);
+    const defaultModules = ['pos', 'products', 'sales'];
+    return {
+      tenantId,
+      slug,
+      industry: 'retail',
+      modules:  defaultModules,
+      roles:    ['admin', 'cashier'],
+      currency: 'uzs',
+      theme: {
+        shopName:     '',
+        address:      '',
+        phone:        '',
+        primaryColor: '#2563eb',
+        logo:         '',
+        bgType:       'solid',
+        darkMode:     false,
+      },
+      navigation: defaultModules.map((key) => ({
+        key,
+        label: NAV_LABELS[key] ?? key,
+        path:  `/${key}`,
+      })),
+      permissions: {
+        admin:   { modules: ['*'], actions: ['read','create','update','delete'], denied: [], canAccessSettings: true,  canManageUsers: true,  canViewReports: true,  canDeleteData: true  },
+        cashier: { modules: ['pos','sales','customers','payments'], actions: ['read','create'], denied: [], canAccessSettings: false, canManageUsers: false, canViewReports: false, canDeleteData: false },
+      },
+      generatedAt: new Date(),
     };
   }
 
   async generate(tenantId: string): Promise<CrmConfig> {
-    const wizardConfig = await this.wizardService.findByTenant(tenantId);
-    const crmConfig    = this.generateCRM(wizardConfig);
+    const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
+    const tenantSlug = tenant?.slug;
+
+    let wizardConfig;
+    try {
+      wizardConfig = await this.wizardService.findByTenant(tenantId);
+    } catch {
+      // Wizard hali to'ldirilmagan — default config ishlatamiz
+      const crmConfig = this.defaultCrmConfig(tenantId, tenantSlug);
+      await this.repo.save(
+        this.repo.create({
+          tenantId,
+          config: crmConfig as unknown as Record<string, unknown>,
+          status: GeneratedCrmStatus.ACTIVE,
+        }),
+      );
+      return crmConfig;
+    }
+    const crmConfig = this.generateCRM(wizardConfig, tenantSlug);
 
     const existing = await this.repo.findOne({ where: { tenantId } });
     if (existing) {

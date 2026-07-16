@@ -1,5 +1,4 @@
-import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
-import { EmployeeRole } from '../entities/employee.entity';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateEmployeeDto {
   @IsString()
@@ -19,9 +18,9 @@ export class UpdateEmployeeDto {
   @IsOptional()
   password?: string;
 
-  @IsEnum(EmployeeRole)
+  @IsString()
   @IsOptional()
-  role?: EmployeeRole;
+  role?: string;
 
   @IsBoolean()
   @IsOptional()

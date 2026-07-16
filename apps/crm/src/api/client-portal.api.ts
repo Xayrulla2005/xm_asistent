@@ -1,0 +1,202 @@
+import api from './axios';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+export interface Promotion {
+  id:          string;
+  tenantId:    string;
+  title:       string;
+  description: string | null;
+  imageUrl:    string | null;
+  validUntil:  string | null;
+  isActive:    boolean;
+  createdAt:   string;
+}
+
+export interface Announcement {
+  id:        string;
+  tenantId:  string;
+  title:     string;
+  body:      string | null;
+  isActive:  boolean;
+  createdAt: string;
+}
+
+export interface PortalTenant {
+  id:   string;
+  name: string;
+  slug: string;
+}
+
+export interface PortalPublicPage {
+  tenant:        PortalTenant;
+  promos:        Promotion[];
+  announcements: Announcement[];
+}
+
+export interface PortalCustomer {
+  id:        string;
+  name:      string;
+  phone:     string;
+  address:   string | null;
+  tenantId:  string;
+  totalDebt: number;
+  createdAt?: string;
+}
+
+export interface PortalSale {
+  id:          string;
+  totalAmount: number;
+  paymentType: string;
+  status:      string;
+  customerName:string;
+  items:       Array<{ productId: string; name: string; price: number; quantity: number; discount: number }>;
+  createdAt:   string;
+}
+
+export interface PortalDebt {
+  id:             string;
+  saleId:         string;
+  originalAmount: number;
+  remainingAmount:number;
+  status:         string;
+  dueDate:        string | null;
+  createdAt:      string;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const TOKEN_KEY = (slug: string) => `cp_token_${slug}`;
+const CUST_KEY  = (slug: string) => `cp_customer_${slug}`;
+
+export function getStoredToken(slug: string): string | null {
+  return localStorage.getItem(TOKEN_KEY(slug));
+}
+
+export function getStoredCustomer(slug: string): PortalCustomer | null {
+  try {
+    const raw = localStorage.getItem(CUST_KEY(slug));
+    return raw ? (JSON.parse(raw) as PortalCustomer) : null;
+  } catch { return null; }
+}
+
+export function saveSession(slug: string, token: string, customer: PortalCustomer) {
+  localStorage.setItem(TOKEN_KEY(slug), token);
+  localStorage.setItem(CUST_KEY(slug), JSON.stringify(customer));
+}
+
+export function clearSession(slug: string) {
+  localStorage.removeItem(TOKEN_KEY(slug));
+  localStorage.removeItem(CUST_KEY(slug));
+}
+
+function authHeader(token: string) {
+  return { headers: { Authorization: `Bearer ${token}` } };
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────────
+
+export async function getPortalPage(slug: string): Promise<PortalPublicPage> {
+  const { data } = await api.get(`/portal/${slug}`);
+  return data;
+}
+
+export async function customerLogin(
+  slug: string,
+  phone: string,
+  password: string,
+): Promise<{ accessToken: string; customer: PortalCustomer }> {
+  const { data } = await api.post(`/portal/${slug}/login`, { phone, password });
+  return data;
+}
+
+// ── Account API (customer JWT required) ───────────────────────────────────────
+
+export async function getPortalProfile(token: string): Promise<PortalCustomer> {
+  const { data } = await api.get('/portal/account', authHeader(token));
+  return data;
+}
+
+export async function updatePortalProfile(
+  token: string,
+  dto: { name?: string; address?: string },
+): Promise<PortalCustomer> {
+  const { data } = await api.patch('/portal/account', dto, authHeader(token));
+  return data;
+}
+
+export async function getPortalPurchases(token: string): Promise<PortalSale[]> {
+  const { data } = await api.get('/portal/account/purchases', authHeader(token));
+  return data;
+}
+
+export async function getPortalDebts(token: string): Promise<PortalDebt[]> {
+  const { data } = await api.get('/portal/account/debts', authHeader(token));
+  return data;
+}
+
+// ── Admin API (staff JWT required — uses default api interceptor) ──────────────
+
+export async function setCustomerPortalAccess(
+  customerId: string,
+  password: string,
+): Promise<{ success: boolean; name: string }> {
+  const { data } = await api.post(`/portal/admin/customers/${customerId}/access`, {
+    password, enabled: true,
+  });
+  return data;
+}
+
+export async function removeCustomerPortalAccess(customerId: string): Promise<void> {
+  await api.delete(`/portal/admin/customers/${customerId}/access`);
+}
+
+export async function getAdminPromotions(tenantId: string): Promise<Promotion[]> {
+  const { data } = await api.get(`/portal/admin/${tenantId}/promotions`);
+  return data;
+}
+
+export async function createPromotion(
+  tenantId: string,
+  dto: { title: string; description?: string; validUntil?: string },
+): Promise<Promotion> {
+  const { data } = await api.post(`/portal/admin/${tenantId}/promotions`, dto);
+  return data;
+}
+
+export async function updatePromotion(
+  id: string,
+  dto: Partial<{ title: string; description: string; isActive: boolean; validUntil: string }>,
+): Promise<Promotion> {
+  const { data } = await api.patch(`/portal/admin/promotions/${id}`, dto);
+  return data;
+}
+
+export async function deletePromotion(id: string): Promise<void> {
+  await api.delete(`/portal/admin/promotions/${id}`);
+}
+
+export async function getAdminAnnouncements(tenantId: string): Promise<Announcement[]> {
+  const { data } = await api.get(`/portal/admin/${tenantId}/announcements`);
+  return data;
+}
+
+export async function createAnnouncement(
+  tenantId: string,
+  dto: { title: string; body?: string },
+): Promise<Announcement> {
+  const { data } = await api.post(`/portal/admin/${tenantId}/announcements`, dto);
+  return data;
+}
+
+export async function updateAnnouncement(
+  id: string,
+  dto: Partial<{ title: string; body: string; isActive: boolean }>,
+): Promise<Announcement> {
+  const { data } = await api.patch(`/portal/admin/announcements/${id}`, dto);
+  return data;
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await api.delete(`/portal/admin/announcements/${id}`);
+}

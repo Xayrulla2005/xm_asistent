@@ -49,6 +49,16 @@ export class UpdateProductDto {
   @IsOptional()
   barcode?: string;
 
+  @IsString()
+  @IsOptional()
+  priceCurrency?: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Type(() => Number)
+  @IsOptional()
+  priceUsd?: number;
+
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

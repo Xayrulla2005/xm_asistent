@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import api from '../api/axios';
 import { CrmConfig, RolePermission, getCrmConfig, generateCrmConfig } from '../api/crm-engine.api';
 import { useTenantStore } from './tenant.store';
 import { useAuthStore } from './auth.store';
@@ -32,11 +31,11 @@ function applyTenant(tenantId: string, config: CrmConfig) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
-async function fetchOrGenerate(tenantId: string): Promise<CrmConfig> {
+async function fetchOrGenerate(): Promise<CrmConfig> {
   try {
-    return await getCrmConfig(tenantId);
+    return await getCrmConfig();
   } catch {
-    return await generateCrmConfig(tenantId);
+    return await generateCrmConfig();
   }
 }
 
@@ -45,32 +44,16 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   loading: false,
 
   fetchConfig: async (tenantId: string) => {
-    const FALLBACK = 'd1cb106a-881b-43a5-a98e-3bebb3bfd0fa';
-    const id = tenantId || FALLBACK;
+    if (!tenantId) { set({ config: null, loading: false }); return; }
     set({ loading: true });
-
     try {
-      const config = await fetchOrGenerate(id);
-      applyTenant(id, config);
+      const config = await fetchOrGenerate();
+      applyTenant(tenantId, config);
       set({ config, loading: false });
-      return;
-    } catch { /* try next tenant */ }
-
-    try {
-      const tenants = await api.get<{ id: string }[]>('/tenants').then((r) => r.data);
-      for (const tenant of tenants) {
-        if (tenant.id === id) continue;
-        try {
-          const config = await fetchOrGenerate(tenant.id);
-          applyTenant(tenant.id, config);
-          set({ config, loading: false });
-          return;
-        } catch { /* try next */ }
-      }
-    } catch { /* /api/tenants failed */ }
-
-    localStorage.removeItem(STORAGE_KEY);
-    set({ config: null, loading: false });
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      set({ config: null, loading: false });
+    }
   },
 
   clearConfig: () => {
@@ -80,7 +63,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   hasModule: (key: string) => {
     const { config } = get();
-    if (!config || config.modules.length === 0) return true;
+    if (!config) return true;
     return config.modules.includes(key);
   },
 

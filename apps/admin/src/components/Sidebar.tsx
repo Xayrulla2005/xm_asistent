@@ -3,12 +3,21 @@ import { useAuthStore } from '../stores/auth.store';
 import { useThemeStore } from '../stores/theme.store';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/tenants',   label: 'Tenants'   },
-  { to: '/bugs',      label: 'Bug Tracker' },
+  { to: '/dashboard',  label: 'Dashboard'           },
+  { to: '/tenants',    label: 'Tenants'              },
+  { to: '/statistics', label: 'Statistika'           },
+  { to: '/users',      label: 'Foydalanuvchilar'     },
+  { to: '/billing',    label: 'Billing'              },
+  { to: '/bugs',       label: 'Bug Tracker'          },
+  { to: '/audit',      label: 'Audit Jurnali'        },
 ];
 
-export default function Sidebar() {
+interface Props {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open, onClose }: Props) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const { theme, toggle } = useThemeStore();
@@ -18,15 +27,23 @@ export default function Sidebar() {
     navigate('/');
   };
 
+  const handleNav = () => {
+    onClose?.();
+  };
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">XM Admin</div>
+    <aside className={`sidebar${open ? ' sidebar--open' : ''}`}>
+      <div className="sidebar-logo">
+        XM Admin
+        <button className="sidebar-close" onClick={onClose} aria-label="Yopish">✕</button>
+      </div>
 
       <nav className="sidebar-nav">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={handleNav}
             className={({ isActive }) =>
               'sidebar-link' + (isActive ? ' sidebar-link--active' : '')
             }
@@ -38,7 +55,7 @@ export default function Sidebar() {
 
       <div className="sidebar-footer">
         <button className="sidebar-theme-toggle" onClick={toggle} title="Tema almashtirish">
-          {theme === 'dark' ? '☀️ Light mode' : '🌙 Dark mode'}
+          {theme === 'dark' ? 'Light mode' : 'Dark mode'}
         </button>
         <span className="sidebar-email">{user?.email}</span>
         <button className="sidebar-logout" onClick={handleLogout}>

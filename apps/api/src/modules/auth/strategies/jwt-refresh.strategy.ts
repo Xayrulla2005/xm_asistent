@@ -7,6 +7,7 @@ import { Request } from 'express';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
+import { Employee } from '../../employees/entities/employee.entity';
 import { JwtPayload } from './jwt.strategy';
 
 @Injectable()
@@ -15,10 +16,12 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     config: ConfigService,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Employee)
+    private readonly employeeRepo: Repository<Employee>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromBodyField('refreshToken'),
-      secretOrKey: config.get<string>('JWT_REFRESH_SECRET'),
+      secretOrKey: config.get<string>('JWT_REFRESH_SECRET') as string,
       ignoreExpiration: false,
       passReqToCallback: true,
     });
@@ -26,13 +29,24 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
 
   async validate(req: Request, payload: JwtPayload): Promise<User> {
     const refreshToken = req.body?.refreshToken as string;
+
     const user = await this.userRepo.findOne({ where: { id: payload.sub } });
+    if (user) {
+      if (!user.refreshToken) throw new UnauthorizedException();
+      const matches = await bcrypt.compare(refreshToken, user.refreshToken);
+      if (!matches) throw new UnauthorizedException();
+      return user;
+    }
 
-    if (!user || !user.refreshToken) throw new UnauthorizedException();
+    const employee = await this.employeeRepo.findOne({ where: { id: payload.sub } });
+    if (employee) {
+      if (!employee.refreshToken) throw new UnauthorizedException();
+      const matches = await bcrypt.compare(refreshToken, employee.refreshToken);
+      if (!matches) throw new UnauthorizedException();
+      (employee as any)._isEmployee = true;
+      return employee as unknown as User;
+    }
 
-    const matches = await bcrypt.compare(refreshToken, user.refreshToken);
-    if (!matches) throw new UnauthorizedException();
-
-    return user;
+    throw new UnauthorizedException();
   }
 }

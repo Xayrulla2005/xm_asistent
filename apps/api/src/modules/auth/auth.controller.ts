@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Patch, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
@@ -35,4 +35,28 @@ export class AuthController {
   logout(@CurrentUser() user: User) {
     return this.authService.logout(user.id);
   }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  googleAuth(@Body() body: { token: string }) {
+    return this.authService.googleAuth(body.token);
+  }
+
+  /** Login-only — returns 401 if user has no tenant (not registered yet) */
+  @Post('google-login')
+  @HttpCode(HttpStatus.OK)
+  googleLogin(@Body() body: { token: string }) {
+    return this.authService.googleLoginOnly(body.token);
+  }
+
+  @Patch('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @CurrentUser() user: User,
+    @Body() body: { currentPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
+  }
+
 }

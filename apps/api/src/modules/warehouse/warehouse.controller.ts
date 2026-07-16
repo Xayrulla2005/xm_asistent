@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WarehouseService } from './warehouse.service';
 import { CreateWarehouseLogDto } from './dto/create-warehouse-log.dto';
@@ -17,26 +18,27 @@ export class WarehouseController {
   constructor(private readonly warehouseService: WarehouseService) {}
 
   @Post()
-  create(@Body() dto: CreateWarehouseLogDto) {
+  create(@CurrentUser() user: { tenantId: string }, @Body() dto: CreateWarehouseLogDto) {
+    dto.tenantId = user.tenantId;
     return this.warehouseService.create(dto);
   }
 
   // /stats va /low-stock /:id dan oldin turishi kerak
   @Get('stats')
-  getStats(@Query('tenantId') tenantId?: string) {
-    return this.warehouseService.getStats(tenantId);
+  getStats(@CurrentUser() user: { tenantId: string }) {
+    return this.warehouseService.getStats(user.tenantId);
   }
 
   @Get('low-stock')
-  getLowStock(@Query('tenantId') tenantId?: string) {
-    return this.warehouseService.getLowStock(tenantId);
+  getLowStock(@CurrentUser() user: { tenantId: string }) {
+    return this.warehouseService.getLowStock(user.tenantId);
   }
 
   @Get()
   findAll(
-    @Query('tenantId') tenantId?: string,
-    @Query('type')     type?: WarehouseLogType,
+    @CurrentUser() user: { tenantId: string },
+    @Query('type') type?: WarehouseLogType,
   ) {
-    return this.warehouseService.findAll(tenantId, type);
+    return this.warehouseService.findAll(user.tenantId, type);
   }
 }

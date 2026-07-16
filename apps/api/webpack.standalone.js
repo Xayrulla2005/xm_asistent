@@ -10,6 +10,7 @@
 const path = require('path');
 
 module.exports = {
+  context: path.resolve(__dirname),
   entry: './src/main.ts',
   target: 'node',
   mode: 'production',

@@ -55,8 +55,31 @@ export class Sale {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   mixedCard: number | null;
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  mixedTransfer: number | null;
+
   @Column({ type: 'enum', enum: SaleStatus, default: SaleStatus.COMPLETED })
   status: SaleStatus;
+
+  // ── New fields ────────────────────────────────────────────────────────────────
+
+  @Column({ nullable: true, type: 'uuid' })
+  customerId: string | null;
+
+  @Column({ type: 'varchar', default: 'uzs' })
+  currency: string;
+
+  @Column({ type: 'decimal', precision: 15, scale: 4, default: 1 })
+  currencyRate: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  amountInCurrency: number | null;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  partialPaid: number | null;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  partialRemaining: number | null;
 
   @CreateDateColumn()
   createdAt: Date;

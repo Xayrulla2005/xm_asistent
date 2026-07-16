@@ -53,14 +53,14 @@ export class PaymentsService {
     return { totalIncome, totalExpense, pendingCount };
   }
 
-  async findOne(id: string): Promise<Payment> {
-    const payment = await this.repo.findOne({ where: { id } });
+  async findOne(id: string, tenantId: string): Promise<Payment> {
+    const payment = await this.repo.findOne({ where: { id, tenantId } });
     if (!payment) throw new NotFoundException("To'lov topilmadi");
     return payment;
   }
 
-  async updateStatus(id: string, dto: UpdatePaymentStatusDto): Promise<Payment> {
-    const payment = await this.findOne(id);
+  async updateStatus(id: string, dto: UpdatePaymentStatusDto, tenantId: string): Promise<Payment> {
+    const payment = await this.findOne(id, tenantId);
     payment.status = dto.status;
     return this.repo.save(payment);
   }

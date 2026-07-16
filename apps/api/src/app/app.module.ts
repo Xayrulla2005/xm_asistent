@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -17,6 +18,20 @@ import { DashboardModule } from '../modules/dashboard/dashboard.module';
 import { EmployeesModule } from '../modules/employees/employees.module';
 import { UploadModule } from '../modules/upload/upload.module';
 import { BugsModule } from '../modules/bugs/bugs.module';
+import { AnalyticsModule } from '../modules/analytics/analytics.module';
+import { BillingModule } from '../modules/billing/billing.module';
+import { OtpModule } from '../modules/otp/otp.module';
+import { DebtsModule } from '../modules/debts/debts.module';
+import { BranchesModule } from '../modules/branches/branches.module';
+import { AuditModule } from '../modules/audit/audit.module';
+import { AuditInterceptor } from '../common/interceptors/audit.interceptor';
+import { ClientPortalModule } from '../modules/client-portal/client-portal.module';
+import { ClinicModule } from '../modules/clinic/clinic.module';
+import { EducationModule } from '../modules/education/education.module';
+import { RestaurantModule } from '../modules/restaurant/restaurant.module';
+import { GymModule } from '../modules/gym/gym.module';
+import { BeautyModule } from '../modules/beauty/beauty.module';
+import { AutoModule } from '../modules/auto/auto.module';
 
 @Module({
   imports: [
@@ -42,7 +57,7 @@ import { BugsModule } from '../modules/bugs/bugs.module';
         database: config.get('DB_NAME'),
         autoLoadEntities: true,
         synchronize: true,
-        logging: true,
+        logging: false,
       }),
     }),
     AuthModule,
@@ -58,8 +73,24 @@ import { BugsModule } from '../modules/bugs/bugs.module';
     EmployeesModule,
     UploadModule,
     BugsModule,
+    AnalyticsModule,
+    BillingModule,
+    OtpModule,
+    DebtsModule,
+    BranchesModule,
+    AuditModule,
+    ClientPortalModule,
+    ClinicModule,
+    EducationModule,
+    RestaurantModule,
+    GymModule,
+    BeautyModule,
+    AutoModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+  ],
 })
 export class AppModule {}

@@ -126,28 +126,28 @@ export default function Payments() {
   return (
     <div className="page">
       <div className="page-header">
-        <h2 className="page-title">💳 To'lovlar</h2>
+        <h2 className="page-title">To'lovlar</h2>
         <button className="btn-primary" onClick={openModal}>+ Yangi to'lov</button>
       </div>
 
       {/* Stats cards */}
       <div className="stat-grid" style={{ marginBottom: '1.25rem' }}>
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#10b98120', color: '#10b981' }}>💰</div>
+          <div className="stat-icon" style={{ background: '#10b98120', color: '#10b981' }}></div>
           <div className="stat-info">
             <p className="stat-label">Jami kirim</p>
             <p className="stat-value">{stats ? fmt(stats.totalIncome) : '—'}</p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#ef444420', color: '#ef4444' }}>💸</div>
+          <div className="stat-icon" style={{ background: '#ef444420', color: '#ef4444' }}></div>
           <div className="stat-info">
             <p className="stat-label">Jami chiqim</p>
             <p className="stat-value">{stats ? fmt(stats.totalExpense) : '—'}</p>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: '#f59e0b20', color: '#f59e0b' }}>⏳</div>
+          <div className="stat-icon" style={{ background: '#f59e0b20', color: '#f59e0b' }}></div>
           <div className="stat-info">
             <p className="stat-label">Kutilayotgan</p>
             <p className="stat-value">{stats ? `${stats.pendingCount} ta` : '—'}</p>
@@ -225,12 +225,12 @@ export default function Payments() {
                               className="btn-icon"
                               title="Tasdiqlash"
                               onClick={() => handleStatus(p.id, 'completed')}
-                            >✅</button>
+                            >OK</button>
                             <button
                               className="btn-icon"
                               title="Bekor qilish"
                               onClick={() => handleStatus(p.id, 'cancelled')}
-                            >❌</button>
+                            >X</button>
                           </div>
                         )}
                       </td>

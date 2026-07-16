@@ -2,14 +2,12 @@ import axios from 'axios';
 import { reportBug } from '../utils/bugReporter';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: '/api',
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('crm_accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  const tenantId = localStorage.getItem('crm_tenantId');
-  if (tenantId) config.headers['X-Tenant-Id'] = tenantId;
   return config;
 });
 
@@ -18,11 +16,14 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
 
-    if (status === 401) {
+    const url = error.config?.url ?? '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/google');
+    if (status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('crm_accessToken');
       localStorage.removeItem('crm_refreshToken');
       window.location.href = '/';
-    } else {
+    } else if (!status || status >= 500) {
+      // Only report server errors and network failures — not 4xx client errors
       const method = (error.config?.method ?? 'REQUEST').toUpperCase();
       const url    = error.config?.url ?? 'unknown';
       reportBug(

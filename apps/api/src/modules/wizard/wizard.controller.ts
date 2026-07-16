@@ -35,4 +35,9 @@ export class WizardController {
   ) {
     return this.wizardService.update(tenantId, dto);
   }
+
+  @Post('complete/:tenantId')
+  complete(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
+    return this.wizardService.complete(tenantId);
+  }
 }

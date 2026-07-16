@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 import { BugType } from '../bug.entity';
 
 export class CreateBugDto {
@@ -10,11 +10,33 @@ export class CreateBugDto {
   @IsString()
   tenantName?: string;
 
+  @IsOptional()
   @IsEnum(BugType)
-  type!: BugType;
+  type?: BugType;
 
+  @IsOptional()
   @IsString()
-  message!: string;
+  message?: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @IsOptional()
+  @IsString()
+  moduleAffected?: string;
 
   @IsOptional()
   @IsString()
@@ -27,4 +49,16 @@ export class CreateBugDto {
   @IsOptional()
   @IsString()
   userEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  userAgent?: string;
+
+  @IsOptional()
+  @IsNumber()
+  statusCode?: number;
+
+  @IsOptional()
+  @IsString()
+  method?: string;
 }

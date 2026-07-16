@@ -26,6 +26,16 @@ export class Customer {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   totalDebt: number;
 
+  // Client portal auth
+  @Column({ type: 'varchar', nullable: true, select: false })
+  password: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  sessionToken: string | null;
+
+  @Column({ default: false })
+  portalEnabled: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

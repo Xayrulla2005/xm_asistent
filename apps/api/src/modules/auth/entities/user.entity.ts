@@ -41,6 +41,9 @@ export class User {
   @Column({ nullable: true, type: 'text' })
   sessionToken: string | null;
 
+  @Column({ nullable: true, unique: true, type: 'varchar' })
+  googleId!: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 }

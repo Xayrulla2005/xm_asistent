@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -21,35 +22,40 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
-  create(@Body() dto: CreatePaymentDto) {
+  create(@CurrentUser() user: { tenantId: string }, @Body() dto: CreatePaymentDto) {
+    dto.tenantId = user.tenantId;
     return this.paymentsService.create(dto);
   }
 
-  // /stats oldin turishi kerak — /:id dan oldita
+  // /stats oldin turishi kerak — /:id dan oldin
   @Get('stats')
-  getStats(@Query('tenantId') tenantId?: string) {
-    return this.paymentsService.getStats(tenantId);
+  getStats(@CurrentUser() user: { tenantId: string }) {
+    return this.paymentsService.getStats(user.tenantId);
   }
 
   @Get()
   findAll(
-    @Query('tenantId') tenantId?: string,
+    @CurrentUser() user: { tenantId: string },
     @Query('status')   status?: PaymentStatus,
     @Query('method')   method?: PaymentMethod,
   ) {
-    return this.paymentsService.findAll(tenantId, status, method);
+    return this.paymentsService.findAll(user.tenantId, status, method);
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.paymentsService.findOne(id);
+  findOne(
+    @CurrentUser() user: { tenantId: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.paymentsService.findOne(id, user.tenantId);
   }
 
   @Patch(':id/status')
   updateStatus(
+    @CurrentUser() user: { tenantId: string },
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePaymentStatusDto,
   ) {
-    return this.paymentsService.updateStatus(id, dto);
+    return this.paymentsService.updateStatus(id, dto, user.tenantId);
   }
 }

@@ -72,4 +72,35 @@ export class CreateSaleDto {
   @IsOptional()
   @Type(() => Number)
   mixedCard?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  mixedTransfer?: number;
+
+  @IsUUID()
+  @IsOptional()
+  customerId?: string;
+
+  @IsString()
+  @IsOptional()
+  currency?: string;
+
+  @IsNumber({ maxDecimalPlaces: 4 })
+  @IsOptional()
+  @Type(() => Number)
+  currencyRate?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  amountInCurrency?: number;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  partialPaid?: number;
 }
