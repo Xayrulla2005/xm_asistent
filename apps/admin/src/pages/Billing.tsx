@@ -20,9 +20,9 @@ interface PlanMeta {
 }
 
 const PLANS: Record<PlanType, PlanMeta> = {
-  trial:   { label: 'Sinov (Trial)', color: '#6b7280', users: 3,  storage: 500,    apiCalls: 500,    priceMonthly: 0,  priceYearly: 0   },
-  starter: { label: 'Starter',       color: '#2563eb', users: 10, storage: 2_000,  apiCalls: 10_000, priceMonthly: 10, priceYearly: 100 },
-  pro:     { label: 'Pro',           color: '#7c3aed', users: 50, storage: 10_000, apiCalls: 100_000,priceMonthly: 50, priceYearly: 500 },
+  trial:   { label: 'Sinov (Trial)', color: '#6b7280', users: 3,  storage: 500,    apiCalls: 500,    priceMonthly: 0,         priceYearly: 0           },
+  starter: { label: 'Starter',       color: '#2563eb', users: 10, storage: 2_000,  apiCalls: 10_000, priceMonthly: 128_000,   priceYearly: 1_280_000   },
+  pro:     { label: 'Pro',           color: '#7c3aed', users: 50, storage: 10_000, apiCalls: 100_000,priceMonthly: 640_000,   priceYearly: 6_400_000   },
 };
 
 const STATUS_LABELS: Record<SubStatus, string> = {
@@ -50,7 +50,6 @@ const ALL_PLANS: PlanType[] = ['trial', 'starter', 'pro'];
 
 const fmt    = (n: number) => new Intl.NumberFormat('uz-UZ').format(Math.round(n));
 const fmtUzs = (n: number) => `${fmt(n)} so'm`;
-const fmtUsd = (n: number) => n === 0 ? 'Bepul' : `$${n}`;
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
 
 function usagePct(current: number, limit: number): number {
@@ -125,7 +124,7 @@ function PlanModal({
           {ALL_PLANS.map((p) => {
             const m      = PLANS[p];
             const sel    = plan === p;
-            const pLabel = cycle === 'yearly' ? fmtUsd(m.priceYearly) : fmtUsd(m.priceMonthly);
+            const pLabel = m.priceMonthly === 0 ? 'Bepul' : cycle === 'yearly' ? fmtUzs(m.priceYearly) : fmtUzs(m.priceMonthly);
             return (
               <div
                 key={p}
@@ -183,7 +182,7 @@ function PlanModal({
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
             <span style={{ color: 'var(--text-muted)' }}>Narx:</span>
-            <span style={{ fontWeight: 700 }}>{fmtUsd(price)}</span>
+            <span style={{ fontWeight: 700 }}>{price === 0 ? 'Bepul' : fmtUzs(price)}</span>
           </div>
         </div>
 
@@ -431,7 +430,7 @@ export default function Billing() {
       {/* ══ SECTION 1: Stats bar ════════════════════════════════════════════ */}
       {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-          <StatCard label="Oylik daromad (MRR)"   value={fmtUsd(totalMonthlyRevenue)}  color="#16a34a" />
+          <StatCard label="Oylik daromad (MRR)"   value={fmtUzs(totalMonthlyRevenue)}  color="#16a34a" />
           <StatCard label="Faol obunalar"          value={stats?.activeCount    ?? 0}   color="#2563eb" />
           <StatCard label="Sinov davri"            value={stats?.trialCount     ?? 0}   color="#f59e0b" sub={`${stats?.overdueCount ?? 0} muddati o'tgan`} />
           <StatCard label="Bloklangan"             value={stats?.suspendedCount ?? 0}   color="#ef4444" />
@@ -577,7 +576,7 @@ export default function Billing() {
 
                       {/* Price */}
                       <td style={{ fontWeight: 600 }}>
-                        {fmtUsd(sub.priceUzs)}
+                        {sub.priceUzs === 0 ? 'Bepul' : fmtUzs(sub.priceUzs)}
                         {sub.priceUzs > 0 && (
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>
                             /{sub.billingCycle === 'yearly' ? 'yil' : 'oy'}

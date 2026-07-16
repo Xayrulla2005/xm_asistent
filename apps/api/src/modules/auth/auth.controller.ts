@@ -59,4 +59,11 @@ export class AuthController {
     return this.authService.changePassword(user.id, body.currentPassword, body.newPassword);
   }
 
+  /** One-time setup: creates the first superadmin. Fails if one already exists. */
+  @Post('init-superadmin')
+  @HttpCode(HttpStatus.CREATED)
+  initSuperadmin(@Body() body: { email: string; password: string }) {
+    return this.authService.createSuperadmin(body.email, body.password);
+  }
+
 }

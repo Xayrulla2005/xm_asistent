@@ -31,6 +31,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
+    if (data.user?.role !== 'superadmin') {
+      throw new Error('Kirish faqat superadmin uchun ruxsat etilgan');
+    }
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     set({ accessToken: data.accessToken, user: data.user });

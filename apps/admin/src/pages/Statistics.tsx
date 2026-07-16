@@ -286,7 +286,7 @@ export default function Statistics() {
         />
         <StatCard
           label="Oylik daromad"
-          value={overview ? `$${(overview.monthlyRevenue ?? 0).toLocaleString()}` : '...'}
+          value={overview ? (overview.monthlyRevenue > 0 ? `${(overview.monthlyRevenue ?? 0).toLocaleString('uz-UZ')} so'm` : 'Bepul') : '...'}
           color="#10b981"
           sub="Faol obunalar"
         />

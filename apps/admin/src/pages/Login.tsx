@@ -17,8 +17,9 @@ export default function Login() {
     try {
       await login(email, password);
       navigate('/dashboard');
-    } catch {
-      setError("Email yoki parol noto'g'ri");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg || "Email yoki parol noto'g'ri");
     } finally {
       setLoading(false);
     }

@@ -13,7 +13,7 @@ import { EmployeesService } from './employees.service';
 
 @Controller('employees')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'manager')
+@Roles('admin', 'manager', 'superadmin')
 export class EmployeesController {
   constructor(private readonly service: EmployeesService) {}
 

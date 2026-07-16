@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -205,6 +205,28 @@ export class AuthService {
 
   async getUserById(id: string): Promise<User | null> {
     return this.userRepo.findOne({ where: { id } });
+  }
+
+  async createSuperadmin(email: string, password: string) {
+    const existing = await this.userRepo.findOne({ where: { role: UserRole.SUPERADMIN } });
+    if (existing) throw new ForbiddenException('Superadmin allaqachon mavjud');
+
+    const byEmail = await this.userRepo.findOne({ where: { email } });
+    if (byEmail) throw new ConflictException('Bu email allaqachon band');
+
+    const sessionToken = uuidv4();
+    const hashed = await bcrypt.hash(password, 10);
+    const user = this.userRepo.create({
+      email,
+      password: hashed,
+      role: UserRole.SUPERADMIN,
+      tenantId: null,
+      sessionToken,
+    });
+    await this.userRepo.save(user);
+    const tokens = await this.issueTokens(user);
+    await this.saveRefreshToken(user.id, tokens.refreshToken);
+    return { ...tokens, sessionToken };
   }
 
   async reissueForUser(userId: string): Promise<{ accessToken: string; refreshToken: string; user: { id: string; email: string; role: string } }> {
