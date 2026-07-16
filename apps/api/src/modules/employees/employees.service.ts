@@ -8,21 +8,37 @@ import { Repository } from 'typeorm';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { Employee } from './entities/employee.entity';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class EmployeesService {
   constructor(
     @InjectRepository(Employee)
     private readonly repo: Repository<Employee>,
+    private readonly billing: BillingService,
   ) {}
 
   async create(tenantId: string, dto: CreateEmployeeDto) {
     if (!tenantId) throw new ForbiddenException('Tenant kerak');
+
+    // Check plan user limit before creating
+    const sub = await this.billing.getOrCreate(tenantId);
+    const count = await this.repo.count({ where: { tenantId, isActive: true } });
+    if (count >= sub.usersLimit) {
+      throw new ForbiddenException(
+        `Rejangiz bo'yicha maksimal xodimlar soni: ${sub.usersLimit}. Rejangizni yangilang.`,
+      );
+    }
+
     const exists = await this.repo.findOne({ where: { email: dto.email, tenantId } });
     if (exists) throw new ConflictException('Bu email allaqachon band');
     const hashed = await bcrypt.hash(dto.password, 10);
     const emp = this.repo.create({ ...dto, password: hashed, tenantId });
     const saved = await this.repo.save(emp);
+
+    // Keep subscription user count in sync
+    await this.billing.syncUserCount(tenantId, count + 1);
+
     return this.strip(saved);
   }
 

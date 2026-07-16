@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OtpRecord } from './entities/otp-record.entity';
+import { SmsService } from './sms.service';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const nodemailer = require('nodemailer') as typeof import('nodemailer');
@@ -23,6 +24,7 @@ export class OtpService {
     @InjectRepository(OtpRecord)
     private readonly repo: Repository<OtpRecord>,
     private readonly config: ConfigService,
+    private readonly sms: SmsService,
   ) {}
 
   // ── Lockout check ─────────────────────────────────────────────────────────
@@ -191,7 +193,11 @@ export class OtpService {
     if (lock.locked) throw new Error(`LOCKED:${lock.minutesLeft}`);
     const code = this.makeCode();
     await this.upsertOtp(phone, 'phone', code);
+
     this.logger.log(`[OTP-PHONE] Code for ${phone}: ${code}`);
+
+    const message = `XM Asistent: Tasdiqlash kodingiz: ${code}. Kod 5 daqiqa amal qiladi.`;
+    await this.sms.send(phone, message);
   }
 
   async verifyPhoneOtp(phone: string, code: string): Promise<{ valid: boolean; attemptsLeft: number; lockedMinutes?: number }> {

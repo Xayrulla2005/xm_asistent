@@ -1,8 +1,10 @@
 import * as path from 'path';
 import { Module } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from '../modules/auth/auth.module';
@@ -32,6 +34,7 @@ import { RestaurantModule } from '../modules/restaurant/restaurant.module';
 import { GymModule } from '../modules/gym/gym.module';
 import { BeautyModule } from '../modules/beauty/beauty.module';
 import { AutoModule } from '../modules/auto/auto.module';
+import { RedisModule } from '../modules/redis/redis.module';
 
 @Module({
   imports: [
@@ -43,6 +46,15 @@ import { AutoModule } from '../modules/auto/auto.module';
         '.env',
       ],
     }),
+
+    // Rate limiting: 100 req / 60s per IP globally
+    ThrottlerModule.forRoot([{
+      ttl:   60_000,
+      limit: 100,
+    }]),
+
+    // Cron / scheduled tasks
+    ScheduleModule.forRoot(),
 
     // PostgreSQL ulanish
     TypeOrmModule.forRootAsync({
@@ -56,10 +68,12 @@ import { AutoModule } from '../modules/auto/auto.module';
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: config.get('NODE_ENV') !== 'production',
+        synchronize: false,
         logging: false,
+        migrations: ['dist/migrations/*.js'],
       }),
     }),
+    RedisModule,
     AuthModule,
     TenantModule,
     WizardModule,
@@ -91,6 +105,7 @@ import { AutoModule } from '../modules/auto/auto.module';
   providers: [
     AppService,
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}
