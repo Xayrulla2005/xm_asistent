@@ -1,54 +1,45 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { OtpRecord } from './entities/otp-record.entity';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const nodemailer = require('nodemailer') as typeof import('nodemailer');
 
-interface OtpEntry {
-  code:      string;
-  expiresAt: Date;
-  attempts:  number;
-}
-
-const MAX_ATTEMPTS   = 3;
-const LOCKOUT_MS     = 60 * 60 * 1000; // 1 soat
+const MAX_ATTEMPTS = 3;
+const OTP_TTL_MS   = 5  * 60_000; // 5 minutes
+const LOCKOUT_MS   = 60 * 60_000; // 1 hour
 
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
 
-  // email OTPs
-  private readonly otps           = new Map<string, OtpEntry>();
+  // Verified state is short-lived (used during the same registration session)
   private readonly verifiedEmails = new Set<string>();
-  // email lockout: email → qachongacha bloklangan
-  private readonly emailLockouts  = new Map<string, Date>();
-
-  // phone OTPs
-  private readonly phoneOtps      = new Map<string, OtpEntry>();
   private readonly verifiedPhones = new Set<string>();
-  private readonly phoneLockouts  = new Map<string, Date>();
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    @InjectRepository(OtpRecord)
+    private readonly repo: Repository<OtpRecord>,
+    private readonly config: ConfigService,
+  ) {}
 
-  // ── Lockout tekshirish ────────────────────────────────────────────────────
+  // ── Lockout check ─────────────────────────────────────────────────────────
 
-  checkLockout(email: string): { locked: boolean; minutesLeft: number } {
-    return this.checkLockoutMap(this.emailLockouts, email);
-  }
-
-  checkPhoneLockout(phone: string): { locked: boolean; minutesLeft: number } {
-    return this.checkLockoutMap(this.phoneLockouts, phone);
-  }
-
-  private checkLockoutMap(map: Map<string, Date>, key: string): { locked: boolean; minutesLeft: number } {
-    const until = map.get(key);
-    if (!until) return { locked: false, minutesLeft: 0 };
-    if (new Date() >= until) {
-      map.delete(key);
+  async checkLockout(key: string, type = 'email'): Promise<{ locked: boolean; minutesLeft: number }> {
+    const rec = await this.repo.findOne({ where: { key, type } });
+    if (!rec?.lockedUntil) return { locked: false, minutesLeft: 0 };
+    if (new Date() >= rec.lockedUntil) {
+      await this.repo.update({ key, type }, { lockedUntil: null, code: null, attempts: 0 });
       return { locked: false, minutesLeft: 0 };
     }
-    const minutesLeft = Math.ceil((until.getTime() - Date.now()) / 60_000);
+    const minutesLeft = Math.ceil((rec.lockedUntil.getTime() - Date.now()) / 60_000);
     return { locked: true, minutesLeft };
+  }
+
+  async checkPhoneLockout(phone: string): Promise<{ locked: boolean; minutesLeft: number }> {
+    return this.checkLockout(phone, 'phone');
   }
 
   // ── Generic helpers ───────────────────────────────────────────────────────
@@ -57,50 +48,59 @@ export class OtpService {
     return Math.floor(100_000 + Math.random() * 900_000).toString();
   }
 
-  private getOrCreate(map: Map<string, OtpEntry>, key: string): string {
-    const existing = map.get(key);
-    if (existing && new Date() < existing.expiresAt) return existing.code;
-    const code = this.makeCode();
-    map.set(key, { code, expiresAt: new Date(Date.now() + 5 * 60_000), attempts: 0 });
-    return code;
+  private async upsertOtp(key: string, type: string, code: string): Promise<void> {
+    const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+    await this.repo.upsert(
+      { key, type, code, expiresAt, attempts: 0, lockedUntil: null },
+      { conflictPaths: ['key', 'type'], skipUpdateIfNoValuesChanged: false },
+    );
   }
 
-  private verifyEntry(
-    map: Map<string, OtpEntry>,
+  private async verifyCode(
     key: string,
-    code: string,
-    lockoutMap?: Map<string, Date>,
-  ): { valid: boolean; attemptsLeft: number } {
-    const entry = map.get(key);
-    if (!entry) return { valid: false, attemptsLeft: 0 };
-    if (new Date() > entry.expiresAt) { map.delete(key); return { valid: false, attemptsLeft: 0 }; }
+    type: string,
+  ): Promise<(code: string) => Promise<{ valid: boolean; attemptsLeft: number; lockedMinutes?: number }>> {
+    return async (code: string) => {
+      const rec = await this.repo.findOne({ where: { key, type } });
 
-    entry.attempts++;
-    if (entry.code !== code) {
-      const left = MAX_ATTEMPTS - entry.attempts;
-      if (left <= 0) {
-        map.delete(key);
-        // 1 soatlik blok qo'ying
-        if (lockoutMap) {
-          lockoutMap.set(key, new Date(Date.now() + LOCKOUT_MS));
-          this.logger.warn(`[OTP] ${key} — 3 urinish tugadi, 1 soat blok`);
-        }
+      if (!rec) return { valid: false, attemptsLeft: 0 };
+
+      // Check lockout
+      if (rec.lockedUntil && new Date() < rec.lockedUntil) {
+        const minutesLeft = Math.ceil((rec.lockedUntil.getTime() - Date.now()) / 60_000);
+        return { valid: false, attemptsLeft: 0, lockedMinutes: minutesLeft };
       }
-      return { valid: false, attemptsLeft: Math.max(0, left) };
-    }
-    map.delete(key);
-    return { valid: true, attemptsLeft: MAX_ATTEMPTS };
+
+      // Check expiry
+      if (!rec.code || !rec.expiresAt || new Date() > rec.expiresAt) {
+        await this.repo.delete({ key, type });
+        return { valid: false, attemptsLeft: 0 };
+      }
+
+      if (rec.code !== code) {
+        const attempts = rec.attempts + 1;
+        const left = MAX_ATTEMPTS - attempts;
+        if (left <= 0) {
+          const lockedUntil = new Date(Date.now() + LOCKOUT_MS);
+          await this.repo.update({ key, type }, { attempts, code: null, lockedUntil });
+          this.logger.warn(`[OTP] ${key} — 3 urinish tugadi, 1 soat blok`);
+          return { valid: false, attemptsLeft: 0 };
+        }
+        await this.repo.update({ key, type }, { attempts });
+        return { valid: false, attemptsLeft: left };
+      }
+
+      // Valid — clear the OTP
+      await this.repo.delete({ key, type });
+      return { valid: true, attemptsLeft: MAX_ATTEMPTS };
+    };
   }
 
   // ── Email OTP ─────────────────────────────────────────────────────────────
 
-  verifyOtp(email: string, code: string): { valid: boolean; attemptsLeft: number; lockedMinutes?: number } {
-    // Blok tekshir
-    const lock = this.checkLockout(email);
-    if (lock.locked) {
-      return { valid: false, attemptsLeft: 0, lockedMinutes: lock.minutesLeft };
-    }
-    const result = this.verifyEntry(this.otps, email, code, this.emailLockouts);
+  async verifyOtp(email: string, code: string): Promise<{ valid: boolean; attemptsLeft: number; lockedMinutes?: number }> {
+    const verify = await this.verifyCode(email, 'email');
+    const result = await verify(code);
     if (result.valid) this.verifiedEmails.add(email);
     return result;
   }
@@ -108,9 +108,9 @@ export class OtpService {
   isEmailVerified(email: string): boolean { return this.verifiedEmails.has(email); }
   clearVerified(email: string): void      { this.verifiedEmails.delete(email); }
 
-  /** OTP kodni yaratadi, consolega chiqaradi va qaytaradi */
   generateAndLog(email: string): string {
-    const code = this.getOrCreate(this.otps, email);
+    const code = this.makeCode();
+    void this.upsertOtp(email, 'email', code);
     this.logger.log(`╔═══════════════════════════════════╗`);
     this.logger.log(`║  EMAIL : ${email}`);
     this.logger.log(`║  KOD   : ${code}`);
@@ -119,16 +119,12 @@ export class OtpService {
   }
 
   async sendEmailOtp(email: string): Promise<void> {
-    // Blok tekshir (avvalgi 3 urinish)
-    const lock = this.checkLockout(email);
-    if (lock.locked) {
-      throw new Error(`LOCKED:${lock.minutesLeft}`);
-    }
-    // Har doim yangi kod va yangi expiry — resend da vaqt tiklanadi
-    const code = this.makeCode();
-    this.otps.set(email, { code, expiresAt: new Date(Date.now() + 5 * 60_000), attempts: 0 });
+    const lock = await this.checkLockout(email, 'email');
+    if (lock.locked) throw new Error(`LOCKED:${lock.minutesLeft}`);
 
-    // Har doim console ga chiqar
+    const code = this.makeCode();
+    await this.upsertOtp(email, 'email', code);
+
     this.logger.log(`╔════════════════════════════════╗`);
     this.logger.log(`║  OTP  ${email}`);
     this.logger.log(`║  KOD: ${code}`);
@@ -160,16 +156,15 @@ export class OtpService {
   <div style="background:#111;border:1px solid rgba(139,92,246,0.2);border-top:none;border-radius:0 0 16px 16px;padding:32px;text-align:center">
     <p style="margin:0 0 24px;color:#94a3b8;font-size:14px">Ro'yxatdan o'tish uchun kodni kiriting:</p>
     <table style="border-collapse:separate;border-spacing:0;margin:0 auto 24px"><tr>${digitBoxes}</tr></table>
-    <p style="margin:0;color:#94a3b8;font-size:13px">⏱ Kod 5 daqiqa amal qiladi</p>
+    <p style="margin:0;color:#94a3b8;font-size:13px">Kod 5 daqiqa amal qiladi</p>
   </div>
 </div>
 </body></html>`;
 
-    // Aniq SMTP sozlamalar (service:'gmail' ba'zida ishlamaydi)
     const transport = nodemailer.createTransport({
       host:   'smtp.gmail.com',
       port:   587,
-      secure: false, // STARTTLS
+      secure: false,
       auth:   { user: gmailUser, pass: gmailPass },
       tls:    { rejectUnauthorized: false },
     });
@@ -181,11 +176,10 @@ export class OtpService {
         subject: 'XM Assistant — Tasdiqlash kodi',
         html,
       });
-      this.logger.log(`[OTP] ✅ Email sent to ${email}`);
+      this.logger.log(`[OTP] Email sent to ${email}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`[OTP] ❌ Gmail SMTP xato: ${msg}`);
-      // OTP hali ham consoleda — throw qilib yuboramiz controller ushlasin
+      this.logger.error(`[OTP] Gmail SMTP xato: ${msg}`);
       throw new Error(msg);
     }
   }
@@ -193,21 +187,20 @@ export class OtpService {
   // ── Phone OTP ─────────────────────────────────────────────────────────────
 
   async sendPhoneOtp(phone: string): Promise<void> {
-    const lock = this.checkPhoneLockout(phone);
+    const lock = await this.checkPhoneLockout(phone);
     if (lock.locked) throw new Error(`LOCKED:${lock.minutesLeft}`);
-    const code = this.getOrCreate(this.phoneOtps, phone);
+    const code = this.makeCode();
+    await this.upsertOtp(phone, 'phone', code);
     this.logger.log(`[OTP-PHONE] Code for ${phone}: ${code}`);
   }
 
-  verifyPhoneOtp(phone: string, code: string): { valid: boolean; attemptsLeft: number; lockedMinutes?: number } {
-    const lock = this.checkPhoneLockout(phone);
-    if (lock.locked) return { valid: false, attemptsLeft: 0, lockedMinutes: lock.minutesLeft };
-    const result = this.verifyEntry(this.phoneOtps, phone, code, this.phoneLockouts);
+  async verifyPhoneOtp(phone: string, code: string): Promise<{ valid: boolean; attemptsLeft: number; lockedMinutes?: number }> {
+    const verify = await this.verifyCode(phone, 'phone');
+    const result = await verify(code);
     if (result.valid) this.verifiedPhones.add(phone);
     return result;
   }
 
   isPhoneVerified(phone: string): boolean { return this.verifiedPhones.has(phone); }
   clearVerifiedPhone(phone: string): void  { this.verifiedPhones.delete(phone); }
-
 }

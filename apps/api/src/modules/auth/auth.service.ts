@@ -275,6 +275,10 @@ export class AuthService {
 
   private async saveRefreshToken(userId: string, token: string): Promise<void> {
     const hashed = await bcrypt.hash(token, 10);
-    await this.userRepo.update(userId, { refreshToken: hashed });
+    const res = await this.userRepo.update(userId, { refreshToken: hashed });
+    // Fall back to employees table in case userId belongs to an Employee
+    if (!res.affected) {
+      await this.employeeRepo.update(userId, { refreshToken: hashed });
+    }
   }
 }

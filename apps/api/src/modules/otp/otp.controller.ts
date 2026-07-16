@@ -22,19 +22,10 @@ export class OtpController {
   @Post('send-email')
   @HttpCode(200)
   async sendEmail(@Body() body: SendEmailBody) {
-    // Email allaqachon ro'yxatdan o'tganmi?
     const existing = await this.userRepo.findOne({ where: { email: body.email } });
     if (existing) {
       throw new BadRequestException(
-        'Bu email allaqachon ro\'yxatdan o\'tgan. Kirish sahifasiga o\'ting.',
-      );
-    }
-
-    // Lockout tekshirish
-    const lock = this.otp.checkLockout(body.email);
-    if (lock.locked) {
-      throw new BadRequestException(
-        `Juda ko'p noto'g'ri urinish. ${lock.minutesLeft} daqiqadan keyin qayta urinib ko'ring.`,
+        "Bu email allaqachon ro'yxatdan o'tgan. Kirish sahifasiga o'ting.",
       );
     }
 
@@ -52,13 +43,12 @@ export class OtpController {
     }
 
     return { success: true, gmailError };
-    // Note: code is always logged in server console by sendEmailOtp
   }
 
   @Post('verify')
   @HttpCode(200)
-  verify(@Body() body: VerifyBody) {
-    const result = this.otp.verifyOtp(body.email, body.code);
+  async verify(@Body() body: VerifyBody) {
+    const result = await this.otp.verifyOtp(body.email, body.code);
     if (result.lockedMinutes) {
       throw new BadRequestException(
         `${result.lockedMinutes} daqiqadan keyin qayta urinib ko'ring.`,
@@ -72,14 +62,28 @@ export class OtpController {
   @Post('send-phone')
   @HttpCode(200)
   async sendPhone(@Body() body: { phone: string }) {
-    await this.otp.sendPhoneOtp(body.phone);
+    try {
+      await this.otp.sendPhoneOtp(body.phone);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.startsWith('LOCKED:')) {
+        const mins = msg.split(':')[1];
+        throw new BadRequestException(`${mins} daqiqadan keyin qayta urinib ko'ring.`);
+      }
+    }
     return { success: true };
   }
 
   @Post('verify-phone')
   @HttpCode(200)
-  verifyPhone(@Body() body: { phone: string; code: string }) {
-    return this.otp.verifyPhoneOtp(body.phone, body.code);
+  async verifyPhone(@Body() body: { phone: string; code: string }) {
+    const result = await this.otp.verifyPhoneOtp(body.phone, body.code);
+    if (result.lockedMinutes) {
+      throw new BadRequestException(
+        `${result.lockedMinutes} daqiqadan keyin qayta urinib ko'ring.`,
+      );
+    }
+    return result;
   }
 
 }

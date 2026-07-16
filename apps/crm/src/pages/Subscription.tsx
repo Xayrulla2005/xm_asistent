@@ -146,10 +146,11 @@ interface PlanMeta {
   priceMonthly: number; priceYearly: number;
 }
 
+// Prices in UZS — must match PLAN_LIMITS in billing.service.ts
 const PLAN_META: Record<PlanType, PlanMeta> = {
-  trial:   { label: 'Sinov',   color: '#6b7280', users: 3,  apiCalls: 500,     storage: 500,    priceMonthly: 0,  priceYearly: 0   },
-  starter: { label: 'Starter', color: '#2563eb', users: 10, apiCalls: 10_000,  storage: 2_000,  priceMonthly: 10, priceYearly: 100 },
-  pro:     { label: 'Pro',     color: '#7c3aed', users: 50, apiCalls: 100_000, storage: 10_000, priceMonthly: 50, priceYearly: 500 },
+  trial:   { label: 'Sinov',   color: '#6b7280', users: 3,  apiCalls: 500,     storage: 500,    priceMonthly: 0,           priceYearly: 0           },
+  starter: { label: 'Starter', color: '#2563eb', users: 10, apiCalls: 10_000,  storage: 2_000,  priceMonthly: 128_000,     priceYearly: 1_280_000   },
+  pro:     { label: 'Pro',     color: '#7c3aed', users: 50, apiCalls: 100_000, storage: 10_000, priceMonthly: 640_000,     priceYearly: 6_400_000   },
 };
 
 const ALL_PLANS: PlanType[] = ['trial', 'starter', 'pro'];
@@ -231,7 +232,7 @@ function UpgradeModal({ sub, onClose, onDone }: UpgradeModalProps) {
                 const m   = PLAN_META[p];
                 const sel = plan === p;
                 const dis = !canSelect(p);
-                const pLabel = cycle === 'yearly' ? fmtUsd(m.priceYearly) : fmtUsd(m.priceMonthly);
+                const pLabel = cycle === 'yearly' ? fmtUzs(m.priceYearly) : fmtUzs(m.priceMonthly);
                 return (
                   <div
                     key={p}
@@ -322,7 +323,7 @@ function UpgradeModal({ sub, onClose, onDone }: UpgradeModalProps) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                 <span style={{ color: 'var(--text-muted)' }}>Narx:</span>
-                <span style={{ fontWeight: 700 }}>{fmtUsd(price)}</span>
+                <span style={{ fontWeight: 700 }}>{price === 0 ? 'Bepul' : fmtUzs(price)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                 <span style={{ color: 'var(--text-muted)' }}>Davr:</span>
@@ -519,7 +520,7 @@ export default function SubscriptionPage() {
           <InfoRow label="Narx">
             {sub.priceUzs > 0 ? (
               <span style={{ fontWeight: 700, color: planColor }}>
-                {fmtUsd(sub.priceUzs)}
+                {fmtUzs(sub.priceUzs)}
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: 4 }}>
                   /{sub.billingCycle === 'yearly' ? 'yil' : 'oy'}
                 </span>

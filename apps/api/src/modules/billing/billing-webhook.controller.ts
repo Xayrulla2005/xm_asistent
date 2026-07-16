@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BillingCycle, PaymentMethod, PlanType } from './entities/subscription.entity';
-import { BillingService } from './billing.service';
+import { BillingService, PLAN_LIMITS } from './billing.service';
 import { RecordPaymentDto } from './dto/billing.dto';
 
 // ─── Payment provider credentials (required via environment variables) ────────
@@ -89,13 +89,17 @@ export class BillingWebhookController {
     @Body() body: PaymentInitBody,
   ) {
     const tenantId = user.tenantId;
-    const { amount, planType, cycle } = body;
+    const { planType, cycle } = body;
 
     await this.billingService.requestPlanChange(
       tenantId,
       planType as PlanType,
       cycle as BillingCycle,
     );
+
+    // Derive amount from server-side plan config (UZS) — never trust client amount
+    const limits = PLAN_LIMITS[planType as PlanType];
+    const amount = cycle === BillingCycle.YEARLY ? limits.priceYearly : limits.priceMonthly;
 
     const merchant_trans_id = `${tenantId}${SEP}${planType}${SEP}${cycle}`;
     const returnUrl = encodeURIComponent(`${FRONTEND_URL}/subscription`);
@@ -109,7 +113,7 @@ export class BillingWebhookController {
       `&return_url=${returnUrl}`,
     ].join('');
 
-    this.logger.log(`Click payment initiated: tenantId=${tenantId} amount=${amount}`);
+    this.logger.log(`Click payment initiated: tenantId=${tenantId} amount=${amount} (UZS)`);
     return { payment_url, merchant_trans_id };
   }
 
@@ -122,13 +126,17 @@ export class BillingWebhookController {
     @Body() body: PaymentInitBody,
   ) {
     const tenantId = user.tenantId;
-    const { amount, planType, cycle } = body;
+    const { planType, cycle } = body;
 
     await this.billingService.requestPlanChange(
       tenantId,
       planType as PlanType,
       cycle as BillingCycle,
     );
+
+    // Derive amount from server-side plan config (UZS) — never trust client amount
+    const limits = PLAN_LIMITS[planType as PlanType];
+    const amount = cycle === BillingCycle.YEARLY ? limits.priceYearly : limits.priceMonthly;
 
     // Payme amounts are in tiyin (1 UZS = 100 tiyin)
     const amount_tiyin = amount * 100;
