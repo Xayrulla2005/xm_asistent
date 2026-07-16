@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import api from '../api/axios';
 
+interface TenantOption { id: string; name: string; }
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AuditLog {
@@ -273,25 +275,36 @@ export default function AuditPage() {
   const [selected,setSelected]= useState<AuditLog | null>(null);
   const [page,    setPage]    = useState(1);
 
-  const [search,      setSearch]      = useState('');
-  const [filterAction,setFilterAction]= useState('');
-  const [filterEntity,setFilterEntity]= useState('');
-  const [filterFrom,  setFilterFrom]  = useState('');
-  const [filterTo,    setFilterTo]    = useState('');
+  const [search,       setSearch]       = useState('');
+  const [filterAction, setFilterAction] = useState('');
+  const [filterEntity, setFilterEntity] = useState('');
+  const [filterFrom,   setFilterFrom]   = useState('');
+  const [filterTo,     setFilterTo]     = useState('');
+  const [filterTenant, setFilterTenant] = useState('');
+  const [tenantList,   setTenantList]   = useState<TenantOption[]>([]);
+  const [exporting,    setExporting]    = useState(false);
 
   const searchRef  = useRef(search);
   const debounceRef= useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
+  // Load tenant list once for dropdown
+  useEffect(() => {
+    api.get<{ id: string; name: string }[]>('/analytics/tenants')
+      .then((r) => setTenantList(r.data.map((t) => ({ id: t.id, name: t.name }))))
+      .catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const params: Record<string, string | number> = { page, limit: LIMIT };
-      if (searchRef.current) params.search = searchRef.current;
-      if (filterAction)      params.action = filterAction;
-      if (filterEntity)      params.entity = filterEntity;
-      if (filterFrom)        params.from   = filterFrom;
-      if (filterTo)          params.to     = filterTo;
+      if (searchRef.current) params.search    = searchRef.current;
+      if (filterAction)      params.action    = filterAction;
+      if (filterEntity)      params.entity    = filterEntity;
+      if (filterFrom)        params.from      = filterFrom;
+      if (filterTo)          params.to        = filterTo;
+      if (filterTenant)      params.tenantId  = filterTenant;
 
       const [logsRes, statsRes] = await Promise.all([
         api.get<PagedResult>('/audit', { params }),
@@ -305,7 +318,30 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filterAction, filterEntity, filterFrom, filterTo]);
+  }, [page, filterAction, filterEntity, filterFrom, filterTo, filterTenant]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params: Record<string, string> = {};
+      if (filterTenant) params.tenantId  = filterTenant;
+      if (filterAction) params.action    = filterAction;
+      if (filterEntity) params.entity    = filterEntity;
+      if (filterFrom)   params.from      = filterFrom;
+      if (filterTo)     params.to        = filterTo;
+
+      const res = await api.get('/audit/export', { params, responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data as BlobPart], { type: 'text/csv;charset=utf-8;' }));
+      const a   = document.createElement('a');
+      a.href    = url;
+      a.download = `audit-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+    finally { setExporting(false); }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -329,10 +365,11 @@ export default function AuditPage() {
     setFilterEntity('');
     setFilterFrom('');
     setFilterTo('');
+    setFilterTenant('');
     setPage(1);
   };
 
-  const hasFilters = search || filterAction || filterEntity || filterFrom || filterTo;
+  const hasFilters = search || filterAction || filterEntity || filterFrom || filterTo || filterTenant;
 
   // ── Stat cards ──────────────────────────────────────────────────────────────
   const topAction = stats?.byAction[0];
@@ -356,12 +393,21 @@ export default function AuditPage() {
     <div className="page">
       <div className="page-header">
         <h2 className="page-title">Audit Jurnali</h2>
-        <button
-          onClick={() => { setLoading(true); void load(); }}
-          style={{ padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text)' }}
-        >
-          Yangilash
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            style={{ padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text)' }}
+          >
+            {exporting ? 'Yuklanmoqda...' : 'CSV yuklab olish'}
+          </button>
+          <button
+            onClick={() => { setLoading(true); void load(); }}
+            style={{ padding: '0.4rem 0.9rem', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text)' }}
+          >
+            Yangilash
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -385,6 +431,15 @@ export default function AuditPage() {
           placeholder="Chek raqami, foydalanuvchi, ID..."
           style={{ ...inputSt, minWidth: 210, flex: '1 1 210px' }}
         />
+
+        {tenantList.length > 0 && (
+          <select value={filterTenant} onChange={(e) => { setFilterTenant(e.target.value); setPage(1); }} style={inputSt}>
+            <option value="">Barcha tenantlar</option>
+            {tenantList.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        )}
 
         <select value={filterAction} onChange={(e) => { setFilterAction(e.target.value); setPage(1); }} style={inputSt}>
           <option value="">Barcha amallar</option>

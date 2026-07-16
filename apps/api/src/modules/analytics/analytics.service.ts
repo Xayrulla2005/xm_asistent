@@ -18,6 +18,20 @@ export interface OverviewData {
   activeTenants:     number;
   planDistribution:  { trial: number; starter: number; pro: number };
   monthlyRevenue:    number;
+  newTenantsThisMonth: number;
+  churnedThisMonth:    number;
+}
+
+export interface MrrPoint {
+  month:      string;
+  mrr:        number;
+  tenants:    number;
+}
+
+export interface IndustryBreakdown {
+  industry: string;
+  count:    number;
+  revenue:  number;
 }
 
 export interface ActivityData {
@@ -101,12 +115,23 @@ export class AnalyticsService {
   // ── GET /analytics/overview ────────────────────────────────────────────────
 
   async getOverview(): Promise<OverviewData> {
-    const [totalUsers, totalCustomers, totalTenants, activeTenants, subs] = await Promise.all([
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [totalUsers, totalCustomers, totalTenants, activeTenants, subs, newThisMonth, churnedThisMonth] = await Promise.all([
       this.empRepo.count(),
       this.custRepo.count(),
       this.tenantRepo.count(),
       this.tenantRepo.count({ where: { isActive: true } }),
       this.subRepo.find({ select: ['plan', 'priceUzs', 'status'] }),
+      this.tenantRepo.createQueryBuilder('t')
+        .where('t.createdAt >= :start', { start: monthStart })
+        .getCount(),
+      this.subRepo.createQueryBuilder('s')
+        .where('s.status = :status', { status: 'suspended' })
+        .andWhere('s.updatedAt >= :start', { start: monthStart })
+        .getCount(),
     ]);
 
     const planDistribution = { trial: 0, starter: 0, pro: 0 };
@@ -117,7 +142,65 @@ export class AnalyticsService {
       if (s.status === 'active') monthlyRevenue += s.priceUzs ?? 0;
     }
 
-    return { totalUsers, totalCustomers, totalTenants, activeTenants, planDistribution, monthlyRevenue };
+    return {
+      totalUsers, totalCustomers, totalTenants, activeTenants,
+      planDistribution, monthlyRevenue,
+      newTenantsThisMonth: newThisMonth,
+      churnedThisMonth,
+    };
+  }
+
+  // ── GET /analytics/mrr-trend ───────────────────────────────────────────────
+
+  async getMrrTrend(): Promise<MrrPoint[]> {
+    const now = new Date();
+    const result: MrrPoint[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const subs = await this.subRepo.createQueryBuilder('s')
+        .where('s.status = :status', { status: 'active' })
+        .andWhere('s.createdAt < :next', { next })
+        .select(['s.priceUzs'])
+        .getMany();
+      const mrr = subs.reduce((acc, s) => acc + (s.priceUzs ?? 0), 0);
+      result.push({
+        month:   MONTHS_UZ[d.getMonth()],
+        mrr,
+        tenants: subs.length,
+      });
+    }
+    return result;
+  }
+
+  // ── GET /analytics/industry-breakdown ─────────────────────────────────────
+
+  async getIndustryBreakdown(): Promise<IndustryBreakdown[]> {
+    const rows = await this.dataSource.query<{ industry: string; count: string }[]>(`
+      SELECT COALESCE(wc.industry, 'unknown') AS industry, COUNT(*)::int AS count
+      FROM tenants t
+      LEFT JOIN wizard_config wc ON wc."tenantId" = t.id
+      GROUP BY wc.industry
+      ORDER BY count DESC
+    `);
+
+    const subRows = await this.dataSource.query<{ industry: string; revenue: string }[]>(`
+      SELECT COALESCE(wc.industry, 'unknown') AS industry,
+             SUM(COALESCE(s."priceUzs", 0))::bigint AS revenue
+      FROM subscriptions s
+      JOIN tenants t ON t.id = s."tenantId"
+      LEFT JOIN wizard_config wc ON wc."tenantId" = t.id
+      WHERE s.status = 'active'
+      GROUP BY wc.industry
+    `);
+
+    const revenueMap = new Map(subRows.map((r) => [r.industry, Number(r.revenue)]));
+
+    return rows.map((r) => ({
+      industry: r.industry ?? 'unknown',
+      count:    Number(r.count),
+      revenue:  revenueMap.get(r.industry) ?? 0,
+    }));
   }
 
   // ── GET /analytics/activity?period= ───────────────────────────────────────

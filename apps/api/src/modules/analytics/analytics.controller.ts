@@ -36,4 +36,14 @@ export class AnalyticsController {
   getTenantStats() {
     return this.analyticsService.getTenantStats();
   }
+
+  @Get('mrr-trend')
+  getMrrTrend() {
+    return this.analyticsService.getMrrTrend();
+  }
+
+  @Get('industry-breakdown')
+  getIndustryBreakdown() {
+    return this.analyticsService.getIndustryBreakdown();
+  }
 }

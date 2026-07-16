@@ -11,12 +11,14 @@ import api from '../api/axios';
 type Period = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 interface OverviewData {
-  totalUsers:        number;
-  totalCustomers:    number;
-  totalTenants:      number;
-  activeTenants:     number;
-  planDistribution:  { trial: number; starter: number; pro: number };
-  monthlyRevenue:    number;
+  totalUsers:           number;
+  totalCustomers:       number;
+  totalTenants:         number;
+  activeTenants:        number;
+  planDistribution:     { trial: number; starter: number; pro: number };
+  monthlyRevenue:       number;
+  newTenantsThisMonth:  number;
+  churnedThisMonth:     number;
 }
 
 interface ActivityData {
@@ -24,6 +26,18 @@ interface ActivityData {
   logins:      number[];
   apiCalls:    number[];
   activeUsers: number[];
+}
+
+interface MrrPoint {
+  month:   string;
+  mrr:     number;
+  tenants: number;
+}
+
+interface IndustryBreakdown {
+  industry: string;
+  count:    number;
+  revenue:  number;
 }
 
 interface ServerData {
@@ -145,10 +159,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Statistics() {
-  const [overview,     setOverview]     = useState<OverviewData | null>(null);
-  const [activity,     setActivity]     = useState<ActivityData | null>(null);
-  const [serverStats,  setServerStats]  = useState<ServerData | null>(null);
-  const [tenantStats,  setTenantStats]  = useState<TenantStatRow[]>([]);
+  const [overview,          setOverview]          = useState<OverviewData | null>(null);
+  const [activity,          setActivity]          = useState<ActivityData | null>(null);
+  const [serverStats,       setServerStats]        = useState<ServerData | null>(null);
+  const [tenantStats,       setTenantStats]        = useState<TenantStatRow[]>([]);
+  const [mrrTrend,          setMrrTrend]           = useState<MrrPoint[]>([]);
+  const [industryBreakdown, setIndustryBreakdown]  = useState<IndustryBreakdown[]>([]);
   const [period,       setPeriod]       = useState<Period>('weekly');
   const [initLoading,  setInitLoading]  = useState(true);
   const [actLoading,   setActLoading]   = useState(false);
@@ -163,11 +179,15 @@ export default function Statistics() {
       api.get<OverviewData>('/analytics/overview').then((r) => r.data),
       api.get<ActivityData>('/analytics/activity?period=weekly').then((r) => r.data),
       api.get<TenantStatRow[]>('/analytics/tenants').then((r) => r.data),
+      api.get<MrrPoint[]>('/analytics/mrr-trend').then((r) => r.data).catch(() => []),
+      api.get<IndustryBreakdown[]>('/analytics/industry-breakdown').then((r) => r.data).catch(() => []),
     ])
-      .then(([ov, act, ts]) => {
+      .then(([ov, act, ts, mrr, ind]) => {
         setOverview(ov);
         setActivity(act);
         setTenantStats(ts);
+        setMrrTrend(mrr);
+        setIndustryBreakdown(ind);
       })
       .catch(() => setError("Ma'lumot yuklab bo'lmadi"))
       .finally(() => setInitLoading(false));
@@ -285,10 +305,22 @@ export default function Statistics() {
           sub={serverStats ? `${serverStats.requestsPerMinute} so'rov/daqiqa` : ''}
         />
         <StatCard
-          label="Oylik daromad"
-          value={overview ? (overview.monthlyRevenue > 0 ? `${(overview.monthlyRevenue ?? 0).toLocaleString('uz-UZ')} so'm` : 'Bepul') : '...'}
+          label="Oylik daromad (MRR)"
+          value={overview ? (overview.monthlyRevenue > 0 ? `${(overview.monthlyRevenue ?? 0).toLocaleString('uz-UZ')} so'm` : "0 so'm") : '...'}
           color="#10b981"
           sub="Faol obunalar"
+        />
+        <StatCard
+          label="Bu oyda yangi"
+          value={overview?.newTenantsThisMonth ?? 0}
+          color="#06b6d4"
+          sub="Yangi tenantlar"
+        />
+        <StatCard
+          label="Bu oyda to'xtatilgan"
+          value={overview?.churnedThisMonth ?? 0}
+          color="#ef4444"
+          sub="Suspended obunalar"
         />
       </div>
 
@@ -348,6 +380,62 @@ export default function Statistics() {
           </div>
         </div>
       )}
+
+      {/* ══ MRR + Industry breakdown ════════════════════════════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+
+        {/* MRR trend */}
+        {mrrTrend.length > 0 && (
+          <div className="card">
+            <SectionTitle>MRR Trend (12 oy)</SectionTitle>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={mrrTrend} margin={{ top: 5, right: 15, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #e2e8f0)" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
+                  axisLine={false} tickLine={false}
+                  tickFormatter={(v: number) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${(v / 1_000).toFixed(0)}K` : String(v)}
+                />
+                <Tooltip
+                  contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number) => [`${v.toLocaleString('uz-UZ')} so'm`, 'MRR']}
+                />
+                <Line type="monotone" dataKey="mrr" stroke="#10b981" strokeWidth={2.5} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Industry breakdown */}
+        {industryBreakdown.length > 0 && (
+          <div className="card">
+            <SectionTitle>Soha bo'yicha tenantlar</SectionTitle>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart
+                data={industryBreakdown.slice(0, 8)}
+                layout="vertical"
+                margin={{ top: 0, right: 15, left: 0, bottom: 0 }}
+              >
+                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <YAxis
+                  type="category" dataKey="industry"
+                  tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={75}
+                  tickFormatter={(v: string) => INDUSTRY_LABEL[v] ?? v}
+                />
+                <Tooltip
+                  contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: number, _name: string, props: { payload?: { revenue?: number } }) => [
+                    `${v} tenant${props.payload?.revenue ? ` · ${props.payload.revenue.toLocaleString('uz-UZ')} so'm` : ''}`,
+                    '',
+                  ]}
+                />
+                <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} maxBarSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
 
       {/* ══ SECTION 2: Activity chart with period tabs ══════════════════════ */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
