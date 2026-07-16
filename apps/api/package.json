@@ -85,6 +85,8 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/typeorm": "^11.0.1",
+    "@sentry/nestjs": "^10.66.0",
+    "@sentry/node": "^10.66.0",
     "@types/multer": "^2.1.0",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
@@ -99,6 +101,11 @@
     "typeorm": "^0.3.29"
   },
   "devDependencies": {
-    "@nestjs/testing": "^11.0.0"
+    "@nestjs/testing": "^11.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^7.2.1",
+    "jest": "^30.4.2",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.11"
   }
 }

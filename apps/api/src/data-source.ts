@@ -1,5 +1,14 @@
-import 'dotenv/config';
+import * as fs from 'fs';
 import * as path from 'path';
+
+// Load .env from apps/api/.env if it exists (for CLI usage from workspace root)
+const envPath = path.join(process.cwd(), 'apps/api/.env');
+if (fs.existsSync(envPath)) {
+  require('dotenv').config({ path: envPath });
+} else {
+  require('dotenv').config();
+}
+
 import { DataSource } from 'typeorm';
 
 // Used by TypeORM CLI: npx typeorm migration:generate / migration:run

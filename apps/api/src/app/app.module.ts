@@ -35,6 +35,7 @@ import { GymModule } from '../modules/gym/gym.module';
 import { BeautyModule } from '../modules/beauty/beauty.module';
 import { AutoModule } from '../modules/auto/auto.module';
 import { RedisModule } from '../modules/redis/redis.module';
+import { NotificationsModule } from '../modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { RedisModule } from '../modules/redis/redis.module';
     GymModule,
     BeautyModule,
     AutoModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

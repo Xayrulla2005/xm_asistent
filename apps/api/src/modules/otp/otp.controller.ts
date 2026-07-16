@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, HttpCode, Logger, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OtpService } from './otp.service';
@@ -7,6 +8,8 @@ import { User } from '../auth/entities/user.entity';
 interface SendEmailBody { email: string }
 interface VerifyBody    { email: string; code: string }
 
+// OTP endpoints: max 3 per minute per IP — brute-force OTP guessing prevention
+@Throttle({ default: { ttl: 60_000, limit: 3 } })
 @Controller('otp')
 export class OtpController {
   private readonly logger = new Logger(OtpController.name);

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -9,6 +10,16 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { BugsService } from './modules/bugs/bugs.service';
 
 async function bootstrap() {
+  // Sentry — initialize before anything else so it captures bootstrap errors too
+  if (process.env['SENTRY_DSN']) {
+    Sentry.init({
+      dsn:         process.env['SENTRY_DSN'],
+      environment: process.env['NODE_ENV'] ?? 'development',
+      tracesSampleRate: 0.2,        // 20% of requests traced for performance
+      release:     process.env['APP_VERSION'] ?? 'unknown',
+    });
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // ── Security headers ───────────────────────────────────────────────────────

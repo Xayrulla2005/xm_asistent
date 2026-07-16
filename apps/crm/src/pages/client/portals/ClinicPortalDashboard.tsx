@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import {
   ClinicPortalData,
   ClinicAppointmentData,
   ClinicPrescriptionData,
   getClinicData,
+  bookClinicAppointment,
 } from '../../../api/client-portal.api';
 
 const APPT_STATUS_LABEL: Record<string, string> = {
@@ -33,12 +34,26 @@ const fmtDate = (d: string) =>
 interface Props {
   token: string;
   color: string;
+  slug:  string;
 }
 
-export default function ClinicPortalDashboard({ token, color }: Props) {
+const TODAY = new Date().toISOString().slice(0, 10);
+
+export default function ClinicPortalDashboard({ token, color, slug }: Props) {
   const [data,    setData]    = useState<ClinicPortalData | null>(null);
-  const [tab,     setTab]     = useState<'appointments' | 'prescriptions' | 'profile'>('appointments');
+  const [tab,     setTab]     = useState<'appointments' | 'book' | 'prescriptions' | 'profile'>('appointments');
   const [loading, setLoading] = useState(true);
+
+  // Booking state
+  const [bName,    setBName]    = useState('');
+  const [bPhone,   setBPhone]   = useState('');
+  const [bDate,    setBDate]    = useState(TODAY);
+  const [bTime,    setBTime]    = useState('09:00');
+  const [bSpec,    setBSpec]    = useState('');
+  const [bNotes,   setBNotes]   = useState('');
+  const [bLoading, setBLoading] = useState(false);
+  const [bError,   setBError]   = useState('');
+  const [bSuccess, setBSuccess] = useState(false);
 
   useEffect(() => {
     getClinicData(token)
@@ -54,6 +69,27 @@ export default function ClinicPortalDashboard({ token, color }: Props) {
       </div>
     );
   }
+
+  const handleBook = async (e: FormEvent) => {
+    e.preventDefault();
+    setBError(''); setBSuccess(false); setBLoading(true);
+    try {
+      await bookClinicAppointment(slug, {
+        patientName:  bName,
+        patientPhone: bPhone,
+        date:         bDate,
+        time:         bTime,
+        specialty:    bSpec || undefined,
+        notes:        bNotes || undefined,
+      });
+      setBSuccess(true);
+      setBName(''); setBPhone(''); setBSpec(''); setBNotes('');
+    } catch (err: unknown) {
+      setBError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Xatolik yuz berdi');
+    } finally {
+      setBLoading(false);
+    }
+  };
 
   if (!data?.patient) {
     return (
@@ -76,6 +112,7 @@ export default function ClinicPortalDashboard({ token, color }: Props) {
       <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
         {([
           ['appointments',  'Qabullar'],
+          ['book',          'Navbat olish'],
           ['prescriptions', 'Retseptlar'],
           ['profile',       'Profil'],
         ] as const).map(([key, label]) => (
@@ -93,6 +130,84 @@ export default function ClinicPortalDashboard({ token, color }: Props) {
           </button>
         ))}
       </div>
+
+      {/* Navbat olish */}
+      {tab === 'book' && (
+        <form onSubmit={handleBook} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {bSuccess && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: '#10b98120', border: '1px solid #10b98140', color: '#10b981', fontWeight: 600, fontSize: '0.88rem' }}>
+              Navbat muvaffaqiyatli olindi. Administratordan tasdiqlash kutilmoqda.
+            </div>
+          )}
+          {bError && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: '#ef444420', border: '1px solid #ef444440', color: '#ef4444', fontSize: '0.85rem' }}>
+              {bError}
+            </div>
+          )}
+          {[
+            { label: 'Ism Familiya', val: bName,  set: setBName,  ph: 'Alisher Karimov', type: 'text', req: true  },
+            { label: 'Telefon',      val: bPhone, set: setBPhone, ph: '+998901234567',   type: 'tel',  req: true  },
+            { label: 'Mutaxassis',   val: bSpec,  set: setBSpec,  ph: 'Terapevt, Kardiolog...', type: 'text', req: false },
+          ].map(({ label, val, set, ph, type, req }) => (
+            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+              <label style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>
+                {label.toUpperCase()}
+              </label>
+              <input
+                type={type} value={val} required={req} placeholder={ph}
+                onChange={(e) => set(e.target.value)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: 8, padding: '0.55rem 0.75rem', color: '#fff', fontSize: '0.88rem',
+                  outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            {[
+              { label: 'Sana', val: bDate, set: setBDate, type: 'date', min: TODAY },
+              { label: 'Vaqt', val: bTime, set: setBTime, type: 'time', min: undefined },
+            ].map(({ label, val, set, type, min }) => (
+              <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>
+                  {label.toUpperCase()}
+                </label>
+                <input
+                  type={type} value={val} min={min} required
+                  onChange={(e) => set(e.target.value)}
+                  style={{
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                    borderRadius: 8, padding: '0.55rem 0.75rem', color: '#fff', fontSize: '0.88rem',
+                    outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>
+              IZOH (IXTIYORIY)
+            </label>
+            <textarea
+              value={bNotes} onChange={(e) => setBNotes(e.target.value)} rows={2}
+              placeholder="Shikoyat, savollar..."
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 8, padding: '0.55rem 0.75rem', color: '#fff', fontSize: '0.88rem',
+                outline: 'none', fontFamily: 'inherit', resize: 'vertical',
+              }}
+            />
+          </div>
+          <button type="submit" disabled={bLoading} style={{
+            padding: '0.75rem', borderRadius: 10, border: 'none', cursor: 'pointer',
+            background: color, color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+            opacity: bLoading ? 0.6 : 1,
+          }}>
+            {bLoading ? 'Saqlanmoqda...' : 'Navbat olish'}
+          </button>
+        </form>
+      )}
 
       {/* Qabullar */}
       {tab === 'appointments' && (

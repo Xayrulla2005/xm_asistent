@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -174,6 +175,71 @@ export class ClientPortalService {
     ]);
 
     return { patient, appointments, prescriptions };
+  }
+
+  // ── Booking ────────────────────────────────────────────────────────────────
+
+  async bookBeautyAppointment(
+    slug: string,
+    dto: {
+      clientName: string; clientPhone: string;
+      serviceId?: string; serviceName?: string;
+      date: string; timeSlot: string; notes?: string;
+    },
+  ) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug, isActive: true } });
+    if (!tenant) throw new NotFoundException('Portal topilmadi');
+
+    // Collision check: same tenant + master slot already taken
+    const conflict = await this.beautyApptRepo.findOne({
+      where: { tenantId: tenant.id, date: dto.date, timeSlot: dto.timeSlot, status: 'scheduled' },
+    });
+    if (conflict) {
+      throw new BadRequestException('Bu vaqt uchun allaqachon navbat bor. Boshqa vaqtni tanlang.');
+    }
+
+    const appt = this.beautyApptRepo.create({
+      tenantId:    tenant.id,
+      clientName:  dto.clientName,
+      clientPhone: dto.clientPhone,
+      serviceId:   dto.serviceId   ?? null,
+      serviceName: dto.serviceName ?? null,
+      date:        dto.date,
+      timeSlot:    dto.timeSlot,
+      notes:       dto.notes ?? null,
+      status:      'scheduled',
+    });
+    return this.beautyApptRepo.save(appt);
+  }
+
+  async bookClinicAppointment(
+    slug: string,
+    dto: {
+      patientName: string; patientPhone: string;
+      date: string; time: string; specialty?: string; notes?: string;
+    },
+  ) {
+    const tenant = await this.tenantRepo.findOne({ where: { slug, isActive: true } });
+    if (!tenant) throw new NotFoundException('Portal topilmadi');
+
+    const conflict = await this.clinicApptRepo.findOne({
+      where: { tenantId: tenant.id, date: dto.date, time: dto.time, status: 'scheduled' },
+    });
+    if (conflict) {
+      throw new BadRequestException('Bu vaqt uchun allaqachon qabul bor. Boshqa vaqtni tanlang.');
+    }
+
+    const appt = this.clinicApptRepo.create({
+      tenantId:    tenant.id,
+      patientName: dto.patientName,
+      date:        dto.date,
+      time:        dto.time,
+      specialty:   dto.specialty ?? null,
+      notes:       dto.notes    ?? null,
+      status:      'scheduled',
+      duration:    30,
+    });
+    return this.clinicApptRepo.save(appt);
   }
 
   async customerLogin(slug: string, phone: string, password: string) {

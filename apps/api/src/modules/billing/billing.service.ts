@@ -427,6 +427,46 @@ export class BillingService {
     return this.subRepo.save(sub);
   }
 
+  // ── Payment gateway checkout link ─────────────────────────────────────────
+  //
+  // Payme: base64 of "m=MERCHANT_ID;ac.tenant_id=TENANT_ID;a=AMOUNT_TIYIN"
+  // Click: query string on my.click.uz/services/pay
+  //
+  // Both providers call back to /api/billing/webhook/payme or /click
+  // after payment — the webhook handlers record the payment.
+
+  createCheckoutLink(
+    tenantId: string,
+    dto: { method: 'payme' | 'click'; plan: string; cycle: string; amount: number },
+  ): { url: string; method: string } {
+    const amountTiyin = Math.round(dto.amount * 100); // Payme works in tiyins
+    const frontendUrl = process.env['FRONTEND_URL'] ?? 'https://xmasistent.uz';
+    const returnUrl   = `${frontendUrl}/settings?billing=success&plan=${dto.plan}&cycle=${dto.cycle}`;
+
+    if (dto.method === 'payme') {
+      const merchantId = process.env['PAYME_MERCHANT_ID'];
+      if (!merchantId) throw new BadRequestException('Payme sozlanmagan');
+
+      // Payme deep-link: base64("m=ID;ac.order_id=TENANT_ID;a=AMOUNT")
+      const params = `m=${merchantId};ac.tenant_id=${tenantId};a=${amountTiyin};c=${returnUrl}`;
+      const encoded = Buffer.from(params).toString('base64');
+      return { url: `https://checkout.paycom.uz/${encoded}`, method: 'payme' };
+    }
+
+    // Click
+    const serviceId  = process.env['CLICK_SERVICE_ID'];
+    const merchantId = process.env['CLICK_MERCHANT_ID'];
+    if (!serviceId || !merchantId) throw new BadRequestException('Click sozlanmagan');
+
+    const url = new URL('https://my.click.uz/services/pay');
+    url.searchParams.set('service_id',        serviceId);
+    url.searchParams.set('merchant_id',       merchantId);
+    url.searchParams.set('amount',            String(dto.amount));
+    url.searchParams.set('transaction_param', `${tenantId}_${dto.plan}_${dto.cycle}`);
+    url.searchParams.set('return_url',        returnUrl);
+    return { url: url.toString(), method: 'click' };
+  }
+
   // ── All pending plan requests ──────────────────────────────────────────────
 
   async getPendingRequests(): Promise<SubscriptionRow[]> {

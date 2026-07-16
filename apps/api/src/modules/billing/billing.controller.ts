@@ -139,6 +139,26 @@ export class BillingController {
     return this.billingService.approvePlanChange(tenantId);
   }
 
+  // ── Payment gateway checkout links ────────────────────────────────────────
+  //
+  // Returns a redirect URL for the chosen payment provider.
+  // Frontend opens this URL in a new tab; provider redirects back on success.
+
+  @Post(':tenantId/checkout-link')
+  createCheckoutLink(
+    @CurrentUser() user: JwtUser,
+    @Param('tenantId') tenantId: string,
+    @Body() body: {
+      method: 'payme' | 'click';
+      plan:   string;
+      cycle:  string;
+      amount: number; // UZS
+    },
+  ) {
+    this.assertAccess(user, tenantId);
+    return this.billingService.createCheckoutLink(tenantId, body);
+  }
+
   // ── Guard helper ───────────────────────────────────────────────────────────
 
   private assertAccess(user: JwtUser, tenantId: string): void {

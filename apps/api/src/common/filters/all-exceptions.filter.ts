@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import {
   ArgumentsHost,
   Catch,
@@ -36,6 +37,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Only auto-report unexpected server errors (not 404, 401, 400, 422, etc.)
     if (status >= 500) {
+      // Send to Sentry if configured
+      if (process.env['SENTRY_DSN'] && exception instanceof Error) {
+        Sentry.withScope((scope) => {
+          scope.setTag('url',    req.url);
+          scope.setTag('method', req.method);
+          scope.setUser({ id: req.user?.id, email: req.user?.email });
+          Sentry.captureException(exception);
+        });
+      }
+
       void this.bugsService.createFromException({
         tenantId:   req.headers['x-tenant-id'] as string | undefined,
         userEmail:  req.user?.email,

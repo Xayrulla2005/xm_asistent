@@ -12,7 +12,14 @@
       "PowerShell(\\(Get-Content \"d:\\\\Project\\\\XM_asistent\\\\apps\\\\crm\\\\src\\\\styles.css\"\\).Count)",
       "PowerShell($old = \\(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object State -eq 'Listen'\\).OwningProcess; if \\($old\\) { Stop-Process -Id $old -Force; Write-Host \"Killed PID $old\" } else { Write-Host \"Port 3000 was free\" }; Start-Sleep -Seconds 1)",
       "PowerShell(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue)",
-      "PowerShell($old = \\(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object State -eq 'Listen'\\).OwningProcess; if \\($old\\) { Stop-Process -Id $old -Force; Write-Host \"Killed $old\" })"
+      "PowerShell($old = \\(Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object State -eq 'Listen'\\).OwningProcess; if \\($old\\) { Stop-Process -Id $old -Force; Write-Host \"Killed $old\" })",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('compilerOptions',{}\\).get\\('paths',{}\\)\\)\")",
+      "Bash(node_modules/.bin/jest --config apps/api/jest.config.js --testPathPattern=\"auth.service.spec\" --no-coverage)",
+      "Bash(node_modules/.bin/jest --config apps/api/jest.config.js --testPathPatterns=\"auth.service.spec\" --no-coverage)",
+      "Bash(node_modules/.bin/jest --config apps/api/jest.config.js --testPathPatterns=\"auth.service.spec\" --no-coverage --verbose)",
+      "Bash(node_modules/.bin/jest --config apps/api/jest.config.js --testPathPatterns=\"auth.service.spec|client-portal.service.spec\" --no-coverage)",
+      "Bash(node_modules/.bin/jest --config apps/api/jest.config.js --testPathPatterns=\"client-portal.service.spec\" --no-coverage)",
+      "Bash(node_modules/.bin/jest --config apps/api/jest.config.js --no-coverage)"
     ]
   },
   "enabledPlugins": {

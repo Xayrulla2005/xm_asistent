@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import {
   BeautyAppointment, ServiceCatalogItem,
-  getBeautyAppointments, getPublicServiceCatalog,
+  getBeautyAppointments, getPublicServiceCatalog, bookBeautyAppointment,
 } from '../../../api/client-portal.api';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -31,11 +31,24 @@ interface Props {
   color:    string;
 }
 
+const TODAY = new Date().toISOString().slice(0, 10);
+
 export default function BeautyPortalDashboard({ token, slug, color }: Props) {
   const [appointments, setAppointments] = useState<BeautyAppointment[]>([]);
   const [services,     setServices]     = useState<ServiceCatalogItem[]>([]);
-  const [tab,          setTab]          = useState<'appointments' | 'services'>('appointments');
+  const [tab,          setTab]          = useState<'appointments' | 'services' | 'book'>('appointments');
   const [loading,      setLoading]      = useState(true);
+
+  // Booking form state
+  const [bookName,    setBookName]    = useState('');
+  const [bookPhone,   setBookPhone]   = useState('');
+  const [bookDate,    setBookDate]    = useState(TODAY);
+  const [bookTime,    setBookTime]    = useState('10:00');
+  const [bookService, setBookService] = useState('');
+  const [bookNotes,   setBookNotes]   = useState('');
+  const [bookLoading, setBookLoading] = useState(false);
+  const [bookError,   setBookError]   = useState('');
+  const [bookSuccess, setBookSuccess] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -53,6 +66,32 @@ export default function BeautyPortalDashboard({ token, slug, color }: Props) {
   const upcoming = appointments.filter((a) => a.status === 'scheduled' || a.status === 'in_progress');
   const past     = appointments.filter((a) => a.status === 'completed' || a.status === 'cancelled' || a.status === 'no_show');
 
+  const handleBook = async (e: FormEvent) => {
+    e.preventDefault();
+    setBookError(''); setBookSuccess(false); setBookLoading(true);
+    const chosen = services.find((s) => s.id === bookService);
+    try {
+      await bookBeautyAppointment(slug, {
+        clientName:  bookName,
+        clientPhone: bookPhone,
+        serviceId:   bookService || undefined,
+        serviceName: chosen?.name,
+        date:        bookDate,
+        timeSlot:    bookTime,
+        notes:       bookNotes || undefined,
+      });
+      setBookSuccess(true);
+      setBookName(''); setBookPhone(''); setBookNotes(''); setBookService('');
+      // Refresh appointment list
+      getBeautyAppointments(token).then(setAppointments).catch(() => {});
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Xatolik yuz berdi';
+      setBookError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? msg);
+    } finally {
+      setBookLoading(false);
+    }
+  };
+
   const grouped = services.reduce<Record<string, ServiceCatalogItem[]>>((acc, s) => {
     const cat = s.category ?? 'Umumiy';
     if (!acc[cat]) acc[cat] = [];
@@ -64,7 +103,7 @@ export default function BeautyPortalDashboard({ token, slug, color }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Tab nav */}
       <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-        {([['appointments', 'Qabullar'], ['services', 'Xizmatlar narxi']] as const).map(([key, label]) => (
+        {([['appointments', 'Qabullar'], ['book', 'Navbat olish'], ['services', 'Xizmatlar narxi']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -79,6 +118,58 @@ export default function BeautyPortalDashboard({ token, slug, color }: Props) {
           </button>
         ))}
       </div>
+
+      {/* Navbat olish tab */}
+      {tab === 'book' && (
+        <form onSubmit={handleBook} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {bookSuccess && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: '#10b98120', border: '1px solid #10b98140', color: '#10b981', fontWeight: 600, fontSize: '0.88rem' }}>
+              Navbat muvaffaqiyatli olindi. Tasdiqlash SMS keladi.
+            </div>
+          )}
+          {bookError && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: 10, background: '#ef444420', border: '1px solid #ef444440', color: '#ef4444', fontSize: '0.85rem' }}>
+              {bookError}
+            </div>
+          )}
+          <BookField label="Ismingiz">
+            <input value={bookName} onChange={(e) => setBookName(e.target.value)} required placeholder="Alisher Karimov" />
+          </BookField>
+          <BookField label="Telefon raqam">
+            <input value={bookPhone} onChange={(e) => setBookPhone(e.target.value)} required placeholder="+998901234567" type="tel" />
+          </BookField>
+          <BookField label="Xizmat (ixtiyoriy)">
+            <select value={bookService} onChange={(e) => setBookService(e.target.value)}>
+              <option value="">— Tanlang —</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} — {Number(s.price).toLocaleString('uz-UZ')} so'm</option>
+              ))}
+            </select>
+          </BookField>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <BookField label="Sana">
+              <input type="date" value={bookDate} min={TODAY} onChange={(e) => setBookDate(e.target.value)} required />
+            </BookField>
+            <BookField label="Vaqt">
+              <input type="time" value={bookTime} onChange={(e) => setBookTime(e.target.value)} required />
+            </BookField>
+          </div>
+          <BookField label="Izoh (ixtiyoriy)">
+            <textarea value={bookNotes} onChange={(e) => setBookNotes(e.target.value)} placeholder="Qo'shimcha ma'lumot..." rows={2} />
+          </BookField>
+          <button
+            type="submit"
+            disabled={bookLoading}
+            style={{
+              padding: '0.75rem', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: color, color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+              opacity: bookLoading ? 0.6 : 1,
+            }}
+          >
+            {bookLoading ? 'Saqlanmoqda...' : 'Navbat olish'}
+          </button>
+        </form>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', padding: '2rem' }}>Yuklanmoqda...</div>
@@ -144,6 +235,33 @@ export default function BeautyPortalDashboard({ token, slug, color }: Props) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function BookField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+      <label style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.4)' }}>
+        {label.toUpperCase()}
+      </label>
+      <div style={{
+        borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.15)',
+        background: 'rgba(255,255,255,0.06)',
+      }}>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {React.Children.map(children as any, (child) =>
+          React.isValidElement(child)
+            ? React.cloneElement(child as React.ReactElement<React.HTMLAttributes<HTMLElement>>, {
+                style: {
+                  width: '100%', background: 'none', border: 'none', outline: 'none',
+                  padding: '0.55rem 0.75rem', color: '#fff', fontSize: '0.88rem',
+                  fontFamily: 'inherit', resize: 'vertical',
+                },
+              })
+            : child
+        )}
+      </div>
     </div>
   );
 }

@@ -188,6 +188,7 @@ export default function ClientPortalDashboard() {
                 {tenant.industry === 'clinic' && (
                   <ClinicPortalDashboard
                     token={token}
+                    slug={slug}
                     color={tenant.primaryColor ?? '#6366f1'}
                   />
                 )}

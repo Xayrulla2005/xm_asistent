@@ -7,9 +7,14 @@
     "api:build:watch": "webpack-cli build --config apps/api/webpack.standalone.js --mode development --watch",
     "api:start": "node apps/api/dist/main.js",
     "api:start:watch": "node --watch apps/api/dist/main.js",
-    "migration:run": "ts-node -r dotenv/config -P apps/api/tsconfig.json node_modules/typeorm/cli.js migration:run -d apps/api/src/data-source.ts",
-    "migration:revert": "ts-node -r dotenv/config -P apps/api/tsconfig.json node_modules/typeorm/cli.js migration:revert -d apps/api/src/data-source.ts",
-    "migration:generate": "ts-node -r dotenv/config -P apps/api/tsconfig.json node_modules/typeorm/cli.js migration:generate -d apps/api/src/data-source.ts"
+    "migration:run": "node_modules/.bin/typeorm-ts-node-commonjs migration:run -d apps/api/src/data-source.ts",
+    "migration:revert": "node_modules/.bin/typeorm-ts-node-commonjs migration:revert -d apps/api/src/data-source.ts",
+    "migration:generate": "node_modules/.bin/typeorm-ts-node-commonjs migration:generate -d apps/api/src/data-source.ts",
+    "migration:create": "node_modules/.bin/typeorm-ts-node-commonjs migration:create",
+    "migration:show": "node_modules/.bin/typeorm-ts-node-commonjs migration:show -d apps/api/src/data-source.ts",
+    "test:api": "jest --config apps/api/jest.config.js --passWithNoTests",
+    "test:api:watch": "jest --config apps/api/jest.config.js --watch",
+    "test:api:coverage": "jest --config apps/api/jest.config.js --coverage"
   },
   "private": true,
   "devDependencies": {

@@ -275,6 +275,39 @@ export async function getClinicData(token: string): Promise<ClinicPortalData> {
   return data;
 }
 
+// ── Booking (public — no JWT required, only slug) ──────────────────────────
+
+export async function bookBeautyAppointment(
+  slug: string,
+  dto: {
+    clientName:   string;
+    clientPhone:  string;
+    serviceId?:   string;
+    serviceName?: string;
+    date:         string;
+    timeSlot:     string;
+    notes?:       string;
+  },
+): Promise<BeautyAppointment> {
+  const { data } = await api.post(`/portal/${slug}/book-beauty`, dto);
+  return data;
+}
+
+export async function bookClinicAppointment(
+  slug: string,
+  dto: {
+    patientName:  string;
+    patientPhone: string;
+    date:         string;
+    time:         string;
+    specialty?:   string;
+    notes?:       string;
+  },
+): Promise<ClinicAppointmentData> {
+  const { data } = await api.post(`/portal/${slug}/book-clinic`, dto);
+  return data;
+}
+
 // ── Admin API (staff JWT required — uses default api interceptor) ──────────────
 
 export async function setCustomerPortalAccess(
