@@ -136,11 +136,11 @@ export class AnalyticsService {
   private async buildDaily(now: Date): Promise<ActivityData> {
     const rows = await this.dataSource.query<BucketRow[]>(`
       SELECT
-        EXTRACT(HOUR FROM "updatedAt")::int AS bucket,
-        COUNT(*)::int                       AS logins,
-        COUNT(DISTINCT id)::int             AS active_users
+        EXTRACT(HOUR FROM "lastLoginAt")::int AS bucket,
+        COUNT(*)::int                         AS logins,
+        COUNT(DISTINCT id)::int               AS active_users
       FROM employees
-      WHERE "updatedAt" >= NOW() - INTERVAL '24 hours'
+      WHERE "lastLoginAt" >= NOW() - INTERVAL '24 hours'
       GROUP BY bucket
       ORDER BY bucket
     `);
@@ -162,12 +162,12 @@ export class AnalyticsService {
     const from = new Date(now.getTime() - days * 86_400_000);
     const rows = await this.dataSource.query<BucketRow[]>(`
       SELECT
-        "updatedAt"::date::text       AS bucket,
+        "lastLoginAt"::date::text     AS bucket,
         COUNT(*)::int                 AS logins,
         COUNT(DISTINCT id)::int       AS active_users
       FROM employees
-      WHERE "updatedAt" >= $1
-      GROUP BY "updatedAt"::date
+      WHERE "lastLoginAt" >= $1
+      GROUP BY "lastLoginAt"::date
       ORDER BY bucket
     `, [from]);
 
@@ -195,12 +195,12 @@ export class AnalyticsService {
     const from = new Date(now.getFullYear() - 1, now.getMonth(), 1);
     const rows = await this.dataSource.query<BucketRow[]>(`
       SELECT
-        DATE_TRUNC('month', "updatedAt")::date::text AS bucket,
-        COUNT(*)::int                                AS logins,
-        COUNT(DISTINCT id)::int                      AS active_users
+        DATE_TRUNC('month', "lastLoginAt")::date::text AS bucket,
+        COUNT(*)::int                                  AS logins,
+        COUNT(DISTINCT id)::int                        AS active_users
       FROM employees
-      WHERE "updatedAt" >= $1
-      GROUP BY DATE_TRUNC('month', "updatedAt")
+      WHERE "lastLoginAt" >= $1
+      GROUP BY DATE_TRUNC('month', "lastLoginAt")
       ORDER BY bucket
     `, [from]);
 
@@ -251,8 +251,8 @@ export class AnalyticsService {
       this.dataSource.query<EmpStatRow[]>(`
         SELECT
           "tenantId",
-          COUNT(*)::int          AS "userCount",
-          MAX("updatedAt")::text AS "lastActive"
+          COUNT(*)::int              AS "userCount",
+          MAX("lastLoginAt")::text   AS "lastActive"
         FROM employees
         GROUP BY "tenantId"
       `),

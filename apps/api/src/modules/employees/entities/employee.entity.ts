@@ -35,6 +35,9 @@ export class Employee {
   @Column({ nullable: true, type: 'text' })
   refreshToken: string | null;
 
+  @Column({ nullable: true, type: 'timestamptz' })
+  lastLoginAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

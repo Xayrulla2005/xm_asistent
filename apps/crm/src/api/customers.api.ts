@@ -36,8 +36,8 @@ export interface Debt {
   updatedAt: string;
 }
 
-export const getCustomers = (tenantId: string) =>
-  api.get<Customer[]>('/customers', { params: { tenantId } }).then((r) => r.data);
+export const getCustomers = (_tenantId?: string) =>
+  api.get<Customer[]>('/customers').then((r) => r.data);
 
 export const getCustomer = (id: string) =>
   api.get<Customer>(`/customers/${id}`).then((r) => r.data);
@@ -51,17 +51,16 @@ export const updateCustomer = (id: string, data: Partial<CreateCustomerData>) =>
 export const deleteCustomer = (id: string) =>
   api.delete(`/customers/${id}`).then((r) => r.data);
 
-export const exportCustomersExcel = (tenantId: string) =>
+export const exportCustomersExcel = (_tenantId?: string) =>
   api.get('/customers/export', {
-    params: { tenantId },
     responseType: 'blob',
   }).then((r) => r.data as Blob);
 
-export const getDebts = (tenantId: string, customerId?: string, status?: string) =>
-  api.get<Debt[]>('/debts', { params: { tenantId, customerId, status } }).then((r) => r.data);
+export const getDebts = (_tenantId?: string, customerId?: string, status?: string) =>
+  api.get<Debt[]>('/debts', { params: { customerId, status } }).then((r) => r.data);
 
-export const getDebtsSummary = (tenantId: string) =>
-  api.get<{ totalDebt: number; pendingCount: number }>('/debts/summary', { params: { tenantId } }).then((r) => r.data);
+export const getDebtsSummary = (_tenantId?: string) =>
+  api.get<{ totalDebt: number; pendingCount: number }>('/debts/summary').then((r) => r.data);
 
 export const recordDebtPayment = (id: string, amount: number, notes?: string) =>
   api.patch<Debt>(`/debts/${id}/pay`, { amount, notes }).then((r) => r.data);

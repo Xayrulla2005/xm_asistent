@@ -1,5 +1,5 @@
 import {
-  BadRequestException, Injectable, NotFoundException,
+  Injectable, NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -75,20 +75,6 @@ export class BranchesService {
 
   async remove(tenantId: string, id: string): Promise<void> {
     const branch = await this.findOne(tenantId, id);
-
-    // Check pending transfers
-    const pending = await this.transferRepo.count({
-      where: [
-        { tenantId, fromBranchId: id, status: TransferStatus.PENDING },
-        { tenantId, toBranchId:   id, status: TransferStatus.PENDING },
-      ],
-    });
-    if (pending > 0) {
-      throw new BadRequestException(
-        "Bu filialda kutilayotgan ko'chirmalar bor. Avval ularni yakunlang yoki bekor qiling.",
-      );
-    }
-
     await this.branchRepo.remove(branch);
   }
 

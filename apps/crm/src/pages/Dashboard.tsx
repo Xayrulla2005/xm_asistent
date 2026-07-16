@@ -15,7 +15,7 @@ const fmt = (n: number) => Number(n).toLocaleString('uz-UZ') + " so'm";
 const DAY_UZ = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'];
 const PIE_COLORS = ['#10b981', '#3b82f6', '#f59e0b'];
 
-type DateMode = 'today' | 'yesterday' | 'week';
+type DateMode = 'today' | 'yesterday';
 function modeToDate(mode: DateMode): string {
   const d = new Date();
   if (mode === 'yesterday') d.setDate(d.getDate() - 1);

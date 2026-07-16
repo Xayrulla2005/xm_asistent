@@ -237,6 +237,12 @@ export class BillingService {
   // ── Record a manual or payment-gateway payment ─────────────────────────────
 
   async recordPayment(tenantId: string, dto: RecordPaymentDto): Promise<PaymentHistory> {
+    // Idempotency check — prevent duplicate webhook processing (payment gateways retry on timeout)
+    if (dto.transactionId) {
+      const existing = await this.payRepo.findOne({ where: { transactionId: dto.transactionId } });
+      if (existing) return existing;
+    }
+
     const sub = await this.getOrCreate(tenantId);
     const now = new Date();
     const days = sub.billingCycle === BillingCycle.YEARLY ? 365 : 30;

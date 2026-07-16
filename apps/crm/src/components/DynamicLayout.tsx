@@ -24,7 +24,7 @@ export default function DynamicLayout() {
   useEffect(() => {
     fetchConfig(tenantId);
     void fetchFlags(tenantId);
-  }, [tenantId]);
+  }, [tenantId, fetchConfig, fetchFlags]);
 
   useEffect(() => {
     if (!config) return;

@@ -20,12 +20,6 @@ export class WarehouseService {
     const product = await this.productRepo.findOne({ where: { id: dto.productId, tenantId: dto.tenantId } });
     if (!product) throw new NotFoundException('Mahsulot topilmadi');
 
-    if (dto.type === WarehouseLogType.EXPENSE && product.quantity < dto.quantity) {
-      throw new BadRequestException(
-        `Skladda yetarli mahsulot yo'q. Mavjud: ${product.quantity}`,
-      );
-    }
-
     const totalAmount = dto.quantity * dto.price;
 
     const log = this.logRepo.create({
@@ -41,13 +35,25 @@ export class WarehouseService {
 
     await this.logRepo.save(log);
 
-    // Mahsulot miqdorini yangilash
-    product.quantity =
-      dto.type === WarehouseLogType.INCOME
-        ? product.quantity + dto.quantity
-        : product.quantity - dto.quantity;
+    // Atomic conditional stock update — prevents race condition overselling
+    const qb = this.productRepo.createQueryBuilder().update(Product);
+    if (dto.type === WarehouseLogType.INCOME) {
+      qb.set({ quantity: () => `quantity + ${dto.quantity}` })
+        .where('"id" = :id AND "tenantId" = :tenantId', { id: dto.productId, tenantId: dto.tenantId });
+    } else {
+      qb.set({ quantity: () => `quantity - ${dto.quantity}` })
+        .where('"id" = :id AND "tenantId" = :tenantId AND quantity >= :qty', {
+          id: dto.productId, tenantId: dto.tenantId, qty: dto.quantity,
+        });
+    }
+    const result = await qb.execute();
 
-    await this.productRepo.save(product);
+    if (!result.affected) {
+      await this.logRepo.delete(log.id);
+      throw new BadRequestException(
+        `Skladda yetarli mahsulot yo'q. Mavjud: ${product.quantity}, so'ralgan: ${dto.quantity}`,
+      );
+    }
 
     return log;
   }

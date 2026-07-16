@@ -26,16 +26,25 @@ export class OtpService {
   // phone OTPs
   private readonly phoneOtps      = new Map<string, OtpEntry>();
   private readonly verifiedPhones = new Set<string>();
+  private readonly phoneLockouts  = new Map<string, Date>();
 
   constructor(private readonly config: ConfigService) {}
 
   // ── Lockout tekshirish ────────────────────────────────────────────────────
 
   checkLockout(email: string): { locked: boolean; minutesLeft: number } {
-    const until = this.emailLockouts.get(email);
+    return this.checkLockoutMap(this.emailLockouts, email);
+  }
+
+  checkPhoneLockout(phone: string): { locked: boolean; minutesLeft: number } {
+    return this.checkLockoutMap(this.phoneLockouts, phone);
+  }
+
+  private checkLockoutMap(map: Map<string, Date>, key: string): { locked: boolean; minutesLeft: number } {
+    const until = map.get(key);
     if (!until) return { locked: false, minutesLeft: 0 };
     if (new Date() >= until) {
-      this.emailLockouts.delete(email);
+      map.delete(key);
       return { locked: false, minutesLeft: 0 };
     }
     const minutesLeft = Math.ceil((until.getTime() - Date.now()) / 60_000);
@@ -184,12 +193,16 @@ export class OtpService {
   // ── Phone OTP ─────────────────────────────────────────────────────────────
 
   async sendPhoneOtp(phone: string): Promise<void> {
+    const lock = this.checkPhoneLockout(phone);
+    if (lock.locked) throw new Error(`LOCKED:${lock.minutesLeft}`);
     const code = this.getOrCreate(this.phoneOtps, phone);
     this.logger.log(`[OTP-PHONE] Code for ${phone}: ${code}`);
   }
 
-  verifyPhoneOtp(phone: string, code: string): { valid: boolean; attemptsLeft: number } {
-    const result = this.verifyEntry(this.phoneOtps, phone, code);
+  verifyPhoneOtp(phone: string, code: string): { valid: boolean; attemptsLeft: number; lockedMinutes?: number } {
+    const lock = this.checkPhoneLockout(phone);
+    if (lock.locked) return { valid: false, attemptsLeft: 0, lockedMinutes: lock.minutesLeft };
+    const result = this.verifyEntry(this.phoneOtps, phone, code, this.phoneLockouts);
     if (result.valid) this.verifiedPhones.add(phone);
     return result;
   }

@@ -93,7 +93,7 @@ export class ClientPortalService {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const accessToken = await this.jwtService.signAsync(payload as any, {
-      secret:    this.config.get<string>('JWT_SECRET'),
+      secret:    this.config.get<string>('JWT_CUSTOMER_SECRET') ?? this.config.get<string>('JWT_SECRET'),
       expiresIn: '30d' as any,
     });
 

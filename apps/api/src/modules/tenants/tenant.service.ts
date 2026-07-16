@@ -32,9 +32,7 @@ export class TenantService {
       name: dto.name, slug, ownerId: dto.ownerId,
       config: dto.config ?? {}, isActive: dto.isActive ?? true,
     });
-    const saved = await this.repo.save(tenant);
-    await this.createTenantSchema(slug);
-    return saved;
+    return this.repo.save(tenant);
   }
 
   async findAll() {
@@ -208,10 +206,6 @@ export class TenantService {
     } finally {
       await qr.release();
     }
-  }
-
-  async createTenantSchema(slug: string): Promise<void> {
-    await this.dataSource.query(`CREATE SCHEMA IF NOT EXISTS "${slug}"`);
   }
 
   private fillWeekly(raw: { date: string; revenue: string; salesCount: string }[]) {

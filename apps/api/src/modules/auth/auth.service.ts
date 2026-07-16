@@ -64,7 +64,7 @@ export class AuthService {
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
     const sessionToken = uuidv4();
-    await this.employeeRepo.update(employee.id, { sessionToken });
+    await this.employeeRepo.update(employee.id, { sessionToken, lastLoginAt: new Date() });
     employee.sessionToken = sessionToken;
 
     const tokens = await this.issueEmployeeTokens(employee);

@@ -79,27 +79,43 @@ export class SalesService {
 
     const saved = await this.repo.save(sale);
 
-    await Promise.all(
-      dto.items.map(async (i) => {
-        const product = await this.productRepo.findOne({ where: { id: i.productId, tenantId: dto.tenantId } });
-        if (!product) return;
-        const stockBefore = Number(product.quantity);
-        const stockAfter  = stockBefore - i.quantity;
-        await this.productRepo.decrement({ id: i.productId }, 'quantity', i.quantity);
-        await this.movementRepo.save(
-          this.movementRepo.create({
-            tenantId:    dto.tenantId,
-            productId:   i.productId,
-            productName: i.name,
-            type:        MovementType.SALE,
-            quantity:    i.quantity,
-            stockBefore,
-            stockAfter,
-            referenceId: saved.id,
-          }),
+    // Atomic conditional decrement — prevents overselling under concurrent requests
+    for (const i of dto.items) {
+      const result = await this.productRepo
+        .createQueryBuilder()
+        .update(Product)
+        .set({ quantity: () => `quantity - ${Number(i.quantity)}` })
+        .where('"id" = :id AND "tenantId" = :tenantId AND quantity >= :qty', {
+          id: i.productId, tenantId: dto.tenantId, qty: i.quantity,
+        })
+        .execute();
+
+      if (!result.affected) {
+        // Race condition: concurrent request consumed stock — roll back the sale
+        await this.repo.delete(saved.id);
+        const prod = await this.productRepo.findOne({ where: { id: i.productId, tenantId: dto.tenantId } });
+        throw new BadRequestException(
+          `"${i.name}" uchun yetarli stok yo'q. Mavjud: ${prod?.quantity ?? 0}, kerak: ${i.quantity}`,
         );
-      }),
-    );
+      }
+
+      const prod = await this.productRepo.findOne({ where: { id: i.productId, tenantId: dto.tenantId } });
+      if (!prod) continue;
+      const stockAfter  = Number(prod.quantity);
+      const stockBefore = stockAfter + i.quantity;
+      await this.movementRepo.save(
+        this.movementRepo.create({
+          tenantId:    dto.tenantId,
+          productId:   i.productId,
+          productName: i.name,
+          type:        MovementType.SALE,
+          quantity:    i.quantity,
+          stockBefore,
+          stockAfter,
+          referenceId: saved.id,
+        }),
+      );
+    }
 
     // Qarz yozish
     const customerName = dto.customerName ?? '';

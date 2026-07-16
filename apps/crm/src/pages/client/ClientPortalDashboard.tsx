@@ -56,7 +56,7 @@ export default function ClientPortalDashboard() {
   // Auth guard
   useEffect(() => {
     if (!token) navigate(`/client/${slug}/login`, { replace: true });
-  }, []);
+  }, [token, navigate, slug]);
 
   // Fetch data
   useEffect(() => {

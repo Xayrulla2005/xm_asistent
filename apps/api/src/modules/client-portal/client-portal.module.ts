@@ -23,8 +23,8 @@ import { ClientPortalAdminController } from './client-portal-admin.controller';
       imports:    [ConfigModule],
       inject:     [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret:       config.get<string>('JWT_SECRET'),
-        signOptions:  { expiresIn: '30d' },
+        secret:      config.get<string>('JWT_CUSTOMER_SECRET') ?? config.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '30d' },
       }),
     }),
   ],

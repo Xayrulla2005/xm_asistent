@@ -56,7 +56,7 @@ import { AutoModule } from '../modules/auto/auto.module';
         password: config.get('DB_PASSWORD'),
         database: config.get('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: true,
+        synchronize: config.get('NODE_ENV') !== 'production',
         logging: false,
       }),
     }),
