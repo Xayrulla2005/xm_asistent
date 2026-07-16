@@ -76,7 +76,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   canAccess: (moduleKey: string): boolean => {
     const role = useAuthStore.getState().user?.role ?? '';
-    if (role === 'admin' || role === 'ADMIN') return true;
+    if (role.toLowerCase() === 'admin') return true;
     const perms = get().getUserPerms();
     if (!perms) return true;
     const modules = perms.modules ?? [];

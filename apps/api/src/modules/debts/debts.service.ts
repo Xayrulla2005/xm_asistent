@@ -45,8 +45,10 @@ export class DebtsService {
     return this.repo.find({ where, order: { createdAt: 'DESC' } });
   }
 
-  findBySale(saleId: string): Promise<Debt | null> {
-    return this.repo.findOne({ where: { saleId } });
+  findBySale(saleId: string, tenantId?: string): Promise<Debt | null> {
+    const where: Record<string, unknown> = { saleId };
+    if (tenantId) where['tenantId'] = tenantId;
+    return this.repo.findOne({ where });
   }
 
   async recordPayment(id: string, amount: number, tenantId: string, notes?: string): Promise<Debt> {

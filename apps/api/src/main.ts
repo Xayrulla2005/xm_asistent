@@ -8,13 +8,17 @@ import { BugsService } from './modules/bugs/bugs.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const allowedOrigins = [
+    'http://localhost:4200',
+    'http://localhost:4300',
+    'http://localhost:4301',
+    'http://localhost:4302',
+  ];
+  if (process.env['FRONTEND_URL']) allowedOrigins.push(process.env['FRONTEND_URL']);
+  if (process.env['ADMIN_URL'])    allowedOrigins.push(process.env['ADMIN_URL']);
+
   app.enableCors({
-    origin: [
-      'http://localhost:4200',
-      'http://localhost:4300',
-      'http://localhost:4301',
-      'http://localhost:4302',
-    ],
+    origin: allowedOrigins,
     credentials: true,
   });
   const globalPrefix = 'api';

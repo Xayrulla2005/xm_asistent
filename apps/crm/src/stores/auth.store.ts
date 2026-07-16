@@ -57,6 +57,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
+    // Fire-and-forget server logout — invalidates refreshToken in DB
+    const token = localStorage.getItem('crm_accessToken');
+    if (token) {
+      api.post('/auth/logout').catch(() => undefined);
+    }
     localStorage.removeItem('crm_accessToken');
     localStorage.removeItem('crm_refreshToken');
     localStorage.removeItem('crm_sessionToken');

@@ -153,19 +153,21 @@ export class ClientPortalService {
 
   // ── Admin: customer portal access ────────────────────────────────────────────
 
-  async setPortalAccess(customerId: string, password: string, enabled: boolean) {
-    const c = await this.customerRepo.findOne({ where: { id: customerId } });
+  async setPortalAccess(customerId: string, tenantId: string, password: string, enabled: boolean) {
+    const c = await this.customerRepo.findOne({ where: { id: customerId, tenantId } });
     if (!c) throw new NotFoundException('Mijoz topilmadi');
     const hashed = await bcrypt.hash(password, 10);
-    await this.customerRepo.update(customerId, {
+    await this.customerRepo.update({ id: customerId, tenantId }, {
       password:      hashed,
       portalEnabled: enabled,
     });
     return { success: true, name: c.name };
   }
 
-  async disablePortalAccess(customerId: string) {
-    await this.customerRepo.update(customerId, { portalEnabled: false });
+  async disablePortalAccess(customerId: string, tenantId: string) {
+    const exists = await this.customerRepo.findOne({ where: { id: customerId, tenantId } });
+    if (!exists) throw new NotFoundException('Mijoz topilmadi');
+    await this.customerRepo.update({ id: customerId, tenantId }, { portalEnabled: false });
     return { success: true };
   }
 
@@ -190,9 +192,10 @@ export class ClientPortalService {
 
   async updatePromotion(
     id: string,
+    tenantId: string,
     dto: Partial<{ title: string; description: string; isActive: boolean; validUntil: string }>,
   ) {
-    const promo = await this.promoRepo.findOne({ where: { id } });
+    const promo = await this.promoRepo.findOne({ where: { id, tenantId } });
     if (!promo) throw new NotFoundException('Reklama topilmadi');
     if (dto.title       !== undefined) promo.title       = dto.title;
     if (dto.description !== undefined) promo.description = dto.description;
@@ -203,8 +206,10 @@ export class ClientPortalService {
     return this.promoRepo.save(promo);
   }
 
-  deletePromotion(id: string) {
-    return this.promoRepo.delete(id);
+  async deletePromotion(id: string, tenantId: string) {
+    const exists = await this.promoRepo.findOne({ where: { id, tenantId } });
+    if (!exists) throw new NotFoundException('Reklama topilmadi');
+    return this.promoRepo.delete({ id, tenantId });
   }
 
   // ── Admin: announcements ─────────────────────────────────────────────────────
@@ -224,15 +229,18 @@ export class ClientPortalService {
 
   async updateAnnouncement(
     id: string,
+    tenantId: string,
     dto: Partial<{ title: string; body: string; isActive: boolean }>,
   ) {
-    const ann = await this.annRepo.findOne({ where: { id } });
+    const ann = await this.annRepo.findOne({ where: { id, tenantId } });
     if (!ann) throw new NotFoundException('Yangilik topilmadi');
     Object.assign(ann, dto);
     return this.annRepo.save(ann);
   }
 
-  deleteAnnouncement(id: string) {
-    return this.annRepo.delete(id);
+  async deleteAnnouncement(id: string, tenantId: string) {
+    const exists = await this.annRepo.findOne({ where: { id, tenantId } });
+    if (!exists) throw new NotFoundException('Yangilik topilmadi');
+    return this.annRepo.delete({ id, tenantId });
   }
 }

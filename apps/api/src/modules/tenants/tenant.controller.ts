@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -16,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { User, UserRole } from '../auth/entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OtpService } from '../otp/otp.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -141,7 +143,9 @@ export class TenantController {
   }
 
   @Get()
-  findAll() {
+  @UseGuards(JwtAuthGuard)
+  findAll(@CurrentUser() user: { role?: string }) {
+    if (user.role !== 'superadmin') throw new ForbiddenException('Faqat superadmin uchun');
     return this.tenantService.findAll();
   }
 
@@ -152,23 +156,38 @@ export class TenantController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  @UseGuards(JwtAuthGuard)
+  findOne(
+    @CurrentUser() user: { role?: string; tenantId?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (user.role !== 'superadmin' && user.tenantId !== id) {
+      throw new ForbiddenException('Bu tenant ma\'lumotlariga kirishga ruxsat yo\'q');
+    }
     return this.tenantService.findOneRich(id);
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   update(
+    @CurrentUser() user: { role?: string; tenantId?: string },
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTenantDto,
   ) {
+    if (user.role !== 'superadmin' && user.tenantId !== id) {
+      throw new ForbiddenException('Bu tenant ni o\'zgartirish ruxsat yo\'q');
+    }
     return this.tenantService.update(id, dto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(
+    @CurrentUser() user: { role?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (user.role !== 'superadmin') throw new ForbiddenException('Faqat superadmin o\'chira oladi');
     return this.tenantService.remove(id);
   }
 }

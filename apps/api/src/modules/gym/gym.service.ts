@@ -150,8 +150,8 @@ export class GymService {
         note: note ?? null,
       }),
     );
-    // Increment counter
-    await this.memberRepo.update({ id: memberId, tenantId }, { totalCheckins: member.totalCheckins + 1 });
+    // Atomic increment — prevents lost update under concurrent check-ins
+    await this.memberRepo.increment({ id: memberId, tenantId }, 'totalCheckins', 1);
     return checkin;
   }
 

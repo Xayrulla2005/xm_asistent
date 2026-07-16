@@ -6,15 +6,20 @@ import { BillingCycle, PaymentMethod, PlanType } from './entities/subscription.e
 import { BillingService } from './billing.service';
 import { RecordPaymentDto } from './dto/billing.dto';
 
-// ─── Payment provider credentials (set via environment variables) ─────────────
-// Click: see https://docs.click.uz/api-click-merchant/
-const CLICK_SERVICE_ID  = process.env['CLICK_SERVICE_ID']  ?? '12345';
-const CLICK_MERCHANT_ID = process.env['CLICK_MERCHANT_ID'] ?? '12345';
-const CLICK_SECRET_KEY  = process.env['CLICK_SECRET_KEY']  ?? 'click_secret_dev';
+// ─── Payment provider credentials (required via environment variables) ────────
+function requireEnv(name: string, devFallback?: string): string {
+  const val = process.env[name];
+  if (val) return val;
+  if (process.env['NODE_ENV'] !== 'production' && devFallback) return devFallback;
+  throw new Error(`Muhit o'zgaruvchisi ${name} o'rnatilmagan. To'lov tizimi ishlamaydi.`);
+}
 
-// Payme: see https://developer.help.paycom.uz/protokol-merchant-api
-const PAYME_MERCHANT_ID = process.env['PAYME_MERCHANT_ID'] ?? 'your_payme_merchant_id';
-const PAYME_SECRET_KEY  = process.env['PAYME_SECRET_KEY']  ?? 'payme_secret_dev';
+const CLICK_SERVICE_ID  = requireEnv('CLICK_SERVICE_ID',  '12345');
+const CLICK_MERCHANT_ID = requireEnv('CLICK_MERCHANT_ID', '12345');
+const CLICK_SECRET_KEY  = requireEnv('CLICK_SECRET_KEY',  'click_secret_dev');
+const PAYME_MERCHANT_ID = requireEnv('PAYME_MERCHANT_ID', 'payme_merchant_dev');
+const PAYME_SECRET_KEY  = requireEnv('PAYME_SECRET_KEY',  'payme_secret_dev');
+const FRONTEND_URL      = process.env['FRONTEND_URL'] ?? 'http://localhost:4300';
 
 const SEP = '::';
 
@@ -93,7 +98,7 @@ export class BillingWebhookController {
     );
 
     const merchant_trans_id = `${tenantId}${SEP}${planType}${SEP}${cycle}`;
-    const returnUrl = encodeURIComponent('http://localhost:4200/subscription');
+    const returnUrl = encodeURIComponent(`${FRONTEND_URL}/subscription`);
 
     const payment_url = [
       'https://my.click.uz/services/pay',

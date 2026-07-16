@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, Between } from 'typeorm';
 import { MenuItem } from './entities/menu-item.entity';
 import { RestTable } from './entities/table.entity';
 import { RestOrder } from './entities/order.entity';
@@ -135,12 +135,14 @@ export class RestaurantService {
   }
 
   async getOrderStats(tenantId: string) {
-    const today = new Date().toISOString().slice(0, 10);
+    const now       = new Date();
+    const dayStart  = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const dayEnd    = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const [total, pending, cooking, todayOrders] = await Promise.all([
       this.orderRepo.count({ where: { tenantId } }),
       this.orderRepo.count({ where: { tenantId, status: 'pending' } }),
       this.orderRepo.count({ where: { tenantId, status: 'cooking' } }),
-      this.orderRepo.count({ where: { tenantId } }),
+      this.orderRepo.count({ where: { tenantId, createdAt: Between(dayStart, dayEnd) } }),
     ]);
     return { total, pending, cooking, today: todayOrders };
   }

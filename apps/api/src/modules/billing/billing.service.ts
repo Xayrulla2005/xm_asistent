@@ -334,7 +334,10 @@ export class BillingService {
 
     const monthlyRevenue = subs
       .filter((s) => s.status === SubStatus.ACTIVE)
-      .reduce((sum, s) => sum + Number(s.priceUzs), 0);
+      .reduce((sum, s) => {
+        const price = Number(s.priceUzs);
+        return sum + (s.billingCycle === BillingCycle.YEARLY ? price / 12 : price);
+      }, 0);
 
     const activeCount    = subs.filter((s) => s.status === SubStatus.ACTIVE).length;
     const trialCount     = subs.filter((s) => s.status === SubStatus.TRIAL).length;

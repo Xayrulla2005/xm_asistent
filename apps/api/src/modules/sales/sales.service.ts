@@ -39,6 +39,17 @@ export class SalesService {
     const partialPaid      = dto.partialPaid      ?? null;
     const partialRemaining = partialPaid != null ? totalAmount - partialPaid : null;
 
+    // Stok tekshiruvi — save() DAN OLDIN, aks holda orphaned sale yozuvi qoladi
+    for (const i of dto.items) {
+      const product = await this.productRepo.findOne({ where: { id: i.productId, tenantId: dto.tenantId } });
+      if (!product) continue;
+      if (product.quantity < i.quantity) {
+        throw new BadRequestException(
+          `"${i.name}" uchun yetarli stok yo'q. Mavjud: ${product.quantity}, kerak: ${i.quantity}`,
+        );
+      }
+    }
+
     const sale = this.repo.create({
       tenantId:     dto.tenantId,
       customerName: dto.customerName ?? '',
@@ -67,17 +78,6 @@ export class SalesService {
     });
 
     const saved = await this.repo.save(sale);
-
-    // Stok kamaytirish + InventoryMovement yozish
-    for (const i of dto.items) {
-      const product = await this.productRepo.findOne({ where: { id: i.productId, tenantId: dto.tenantId } });
-      if (!product) continue;
-      if (product.quantity < i.quantity) {
-        throw new BadRequestException(
-          `"${i.name}" uchun yetarli stok yo'q. Mavjud: ${product.quantity}, kerak: ${i.quantity}`,
-        );
-      }
-    }
 
     await Promise.all(
       dto.items.map(async (i) => {
@@ -139,7 +139,7 @@ export class SalesService {
   async findOne(id: string, tenantId: string): Promise<Sale & { debt?: unknown }> {
     const sale = await this.repo.findOne({ where: { id, tenantId } });
     if (!sale) throw new NotFoundException(`Sale #${id} topilmadi`);
-    const debt = await this.debtsService.findBySale(id);
+    const debt = await this.debtsService.findBySale(id, tenantId);
     return { ...sale, debt: debt ?? null };
   }
 
