@@ -11,7 +11,6 @@ RUN npm ci --ignore-scripts
 # Copy source
 COPY tsconfig*.json ./
 COPY apps/api ./apps/api
-COPY migrations ./migrations
 
 # Build the API bundle
 RUN npx webpack-cli build --config apps/api/webpack.standalone.js --mode production
