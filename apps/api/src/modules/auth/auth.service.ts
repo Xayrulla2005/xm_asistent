@@ -229,15 +229,18 @@ export class AuthService {
     return { ...tokens, sessionToken };
   }
 
-  async generateImpersonateToken(ownerId: string): Promise<{ token: string; expiresAt: string }> {
+  async generateImpersonateToken(ownerId: string, forceTenantId?: string): Promise<{ token: string; expiresAt: string }> {
     const user = await this.userRepo.findOne({ where: { id: ownerId } });
     if (!user) throw new UnauthorizedException('Tenant egasi topilmadi');
 
+    // When the owner is a superadmin (tenantId=null), forceTenantId ensures the
+    // JWT contains the correct target tenant. Role is downgraded to 'admin' so the
+    // CRM grants full module access instead of treating it as an unknown role.
     const payload = {
       sub:          user.id,
       email:        user.email,
-      role:         user.role,
-      tenantId:     user.tenantId ?? null,
+      role:         user.role === 'superadmin' ? 'admin' : user.role,
+      tenantId:     forceTenantId ?? user.tenantId ?? null,
       sessionToken: user.sessionToken ?? null,
       impersonated: true,
     };

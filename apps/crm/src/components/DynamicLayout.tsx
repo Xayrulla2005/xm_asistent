@@ -55,27 +55,33 @@ export default function DynamicLayout() {
     }
   }, [config]);
 
+  const isInIframe = window !== window.top;
+  const ADMIN_URL = (import.meta as unknown as { env: Record<string, string> }).env['VITE_ADMIN_URL'] ?? 'http://localhost:4200';
+  const showBanner = isImpersonated && !isInIframe;
+  const BANNER_H = showBanner ? 34 : 0;
+
   return (
-    <div className="layout">
-      {/* Superadmin impersonation banner */}
-      {isImpersonated && (
+    <div className="layout" style={showBanner ? { paddingTop: BANNER_H } : undefined}>
+      {/* Superadmin impersonation banner — only shown in standalone mode (not in iframe) */}
+      {showBanner && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
           background: '#7c3aed', color: '#fff',
-          padding: '0.35rem 1rem', fontSize: '0.8rem', fontWeight: 600,
-          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem',
+          height: BANNER_H, padding: '0 1rem', fontSize: '0.8rem', fontWeight: 600,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
         }}>
-          <span>Superadmin rejimi — siz boshqa tenant CRM'ini ko'rmoqdasiz ({config?.theme?.shopName ?? 'tenant'})</span>
+          <span>Superadmin rejimi: <strong>{config?.theme?.shopName ?? 'tenant'}</strong> CRM si</span>
           <button
             onClick={() => {
               localStorage.removeItem('crm_impersonated');
               localStorage.removeItem('crm_accessToken');
-              window.close();
+              localStorage.removeItem('crm_wizardConfig');
+              window.location.href = ADMIN_URL;
             }}
-            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.2rem 0.65rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.78rem' }}
+            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.2rem 0.75rem', borderRadius: 5, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
           >
-            Chiqish
+            ← Admin paneliga qaytish
           </button>
         </div>
       )}

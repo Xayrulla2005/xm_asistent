@@ -22,6 +22,7 @@ import {
 } from '../api/wizard.api';
 import { getBilling, getPaymentHistory } from '../api/billing.api';
 import type { Subscription, PaymentHistoryItem } from '../api/billing.api';
+import DeleteConfirmDialogExtracted from './tenants/DeleteConfirmDialog';
 
 interface Tenant {
   id: string;
@@ -2944,12 +2945,13 @@ const DAY_UZ = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'];
 const PIE_COLORS = ['#10b981', '#6366f1', '#f59e0b'];
 
 function TenantDetailModal({
-  detail, onClose, onEdit, onDelete,
+  detail, onClose, onEdit, onDelete, onImpersonate,
 }: {
   detail: TenantDetail;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onImpersonate: (url: string, name: string) => void;
 }) {
   const [tab, setTab]               = useState<'umumiy' | 'analitika' | 'resurslar' | 'billing' | 'foydalanuvchilar' | 'buglar'>('umumiy');
   const [billing,        setBilling]     = useState<Subscription | null>(null);
@@ -3012,11 +3014,10 @@ function TenantDetailModal({
     setImpersonating(true);
     try {
       const result = await impersonateTenant(detail.id);
-      const crmBase = (import.meta as Record<string, unknown> & { env: Record<string, string> }).env['VITE_CRM_URL'] ?? 'http://localhost:4300';
-      const url = `${crmBase}/impersonate?token=${encodeURIComponent(result.token)}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const crmBase = (import.meta as unknown as { env: Record<string, string> }).env['VITE_CRM_URL'] ?? 'http://localhost:4300';
+      onImpersonate(`${crmBase}/impersonate?token=${encodeURIComponent(result.token)}`, detail.name);
     } catch {
-      // ignore — user sees no feedback, admin can retry
+      // leave button in loading state only briefly on error
     } finally {
       setImpersonating(false);
     }
@@ -3531,32 +3532,6 @@ function TenantDetailModal({
             </div>
           )}
 
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Delete confirm dialog ──────────────────────────────────────────────────────
-
-function DeleteConfirmDialog({
-  name, deleting, onCancel, onConfirm,
-}: {
-  name: string; deleting: boolean;
-  onCancel: () => void; onConfirm: () => void;
-}) {
-  return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="confirm-icon">!</div>
-        <h3>Diqqat!</h3>
-        <p><strong>"{name}"</strong> CRM ni o'chirasizmi?</p>
-        <p className="confirm-warning">Bu amalni qaytarib bo'lmaydi. Barcha ma'lumotlar o'chadi.</p>
-        <div className="confirm-actions">
-          <button className="btn-secondary" onClick={onCancel} disabled={deleting}>Bekor</button>
-          <button className="btn-danger" onClick={onConfirm} disabled={deleting}>
-            {deleting ? "O'chirilmoqda..." : "Ha, o'chir"}
-          </button>
         </div>
       </div>
     </div>
@@ -4242,6 +4217,8 @@ export default function Tenants() {
   const [deleting,         setDeleting]         = useState(false);
   const [configTenant,     setConfigTenant]     = useState<Tenant | null>(null);
   const [modPreviewKey,    setModPreviewKey]    = useState<string | null>(null);
+  const [impersonatingId,  setImpersonatingId]  = useState<string | null>(null);
+  const [impersonateFrame, setImpersonateFrame] = useState<{ url: string; name: string } | null>(null);
   const [moduleConfigs,    setModuleConfigs]    = useState<Record<string, Record<string, boolean>>>(() => {
     const init: Record<string, Record<string, boolean>> = {};
     ADMIN_RETAIL_MODULES.forEach(m => {
@@ -4264,6 +4241,14 @@ export default function Tenants() {
 
   useEffect(() => { fetchTenants(); }, []);
 
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'crm_exit') setImpersonateFrame(null);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
   const openWizard  = () => {
     setEditingTenantId(null);
     setData(freshData());
@@ -4274,6 +4259,21 @@ export default function Tenants() {
   const closeWizard = () => {
     setShowWizard(false);
     setEditingTenantId(null);
+  };
+
+  const handleQuickImpersonate = async (t: Tenant) => {
+    if (impersonatingId) return;
+    setImpersonatingId(t.id);
+    try {
+      const result = await impersonateTenant(t.id);
+      const crmBase = (import.meta as unknown as { env: Record<string, string> }).env['VITE_CRM_URL'] ?? 'http://localhost:4300';
+      setImpersonateFrame({ url: `${crmBase}/impersonate?token=${encodeURIComponent(result.token)}`, name: t.name });
+    } catch {
+      setError("CRM ochishda xatolik yuz berdi");
+      setTimeout(() => setError(''), 4000);
+    } finally {
+      setImpersonatingId(null);
+    }
   };
 
   const handleView = async (id: string) => {
@@ -4514,7 +4514,17 @@ export default function Tenants() {
               ) : tenants.map((t) => (
                 <tr key={t.id}>
                   <td>
-                    <button className="tenant-name-link" onClick={() => handleView(t.id)}>{t.name}</button>
+                    <button
+                      className={`tenant-name-link${impersonatingId === t.id ? ' tenant-name-link--loading' : ''}`}
+                      onClick={() => void handleQuickImpersonate(t)}
+                      disabled={!!impersonatingId}
+                      title="CRM ni ochish"
+                    >
+                      {impersonatingId === t.id
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span className="spinner spinner--sm" />{t.name}</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><LogIn size={13} />{t.name}</span>
+                      }
+                    </button>
                   </td>
                   <td>
                     {t.industry
@@ -4548,7 +4558,7 @@ export default function Tenants() {
                       <button
                         className="action-btn action-btn--icon action-btn--view"
                         onClick={() => handleView(t.id)}
-                        title="Ko'rish"
+                        title="Batafsil ko'rish"
                       >
                         <Eye size={15} />
                       </button>
@@ -4613,11 +4623,12 @@ export default function Tenants() {
           onClose={() => setShowDetail(false)}
           onEdit={() => handleEdit(detailTenant.id)}
           onDelete={() => { setShowDetail(false); setDeleteTarget({ id: detailTenant.id, name: detailTenant.name, slug: detailTenant.slug, isActive: detailTenant.isActive, createdAt: detailTenant.createdAt }); }}
+          onImpersonate={(url, name) => { setShowDetail(false); setImpersonateFrame({ url, name }); }}
         />
       )}
 
       {deleteTarget && (
-        <DeleteConfirmDialog
+        <DeleteConfirmDialogExtracted
           name={deleteTarget.name}
           deleting={deleting}
           onCancel={() => setDeleteTarget(null)}
@@ -5843,6 +5854,40 @@ export default function Tenants() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {impersonateFrame && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: '#0f172a', display: 'flex', flexDirection: 'column',
+        }}>
+          <div style={{
+            height: 44, flexShrink: 0,
+            background: '#1e293b', borderBottom: '1px solid #334155',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '0 1rem',
+          }}>
+            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+              Superadmin rejimi — <strong style={{ color: '#e2e8f0' }}>{impersonateFrame.name}</strong> CRM si
+            </span>
+            <button
+              onClick={() => setImpersonateFrame(null)}
+              style={{
+                background: 'rgba(255,255,255,0.08)', border: '1px solid #475569',
+                color: '#e2e8f0', padding: '0.25rem 0.85rem', borderRadius: 6,
+                cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+              }}
+            >
+              ← Tenants ga qaytish
+            </button>
+          </div>
+          <iframe
+            key={impersonateFrame.url}
+            src={impersonateFrame.url}
+            style={{ flex: 1, border: 'none', width: '100%' }}
+            title="CRM Preview"
+          />
         </div>
       )}
     </div>

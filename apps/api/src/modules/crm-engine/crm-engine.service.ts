@@ -297,7 +297,7 @@ export class CrmEngineService {
     private readonly wizardService: WizardService,
   ) {}
 
-  generateCRM(wizardConfig: WizardConfig, tenantSlug?: string): CrmConfig {
+  generateCRM(wizardConfig: WizardConfig, tenantSlug?: string, tenantName?: string): CrmConfig {
     const { tenantId, industry, modules, roles, theme } = wizardConfig;
     const t = (theme ?? {}) as Record<string, unknown>;
 
@@ -339,7 +339,7 @@ export class CrmEngineService {
       roles,
       currency: wizardConfig.currency ?? 'uzs',
       theme: {
-        shopName:     t.shopName     as string  ?? '',
+        shopName:     (t.shopName as string) || tenantName || '',
         address:      t.address      as string  ?? '',
         phone:        t.phone        as string  ?? '',
         primaryColor: t.primaryColor as string  ?? '#2563eb',
@@ -354,7 +354,7 @@ export class CrmEngineService {
     };
   }
 
-  private defaultCrmConfig(tenantId: string, tenantSlug?: string): CrmConfig {
+  private defaultCrmConfig(tenantId: string, tenantSlug?: string, tenantName?: string): CrmConfig {
     const slug = tenantSlug ?? tenantId.replace(/-/g, '').slice(0, 12);
     const defaultModules = ['pos', 'products', 'sales'];
     return {
@@ -365,7 +365,7 @@ export class CrmEngineService {
       roles:    ['admin', 'cashier'],
       currency: 'uzs',
       theme: {
-        shopName:     '',
+        shopName:     tenantName || '',
         address:      '',
         phone:        '',
         primaryColor: '#2563eb',
@@ -389,37 +389,48 @@ export class CrmEngineService {
   async generate(tenantId: string): Promise<CrmConfig> {
     const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
     const tenantSlug = tenant?.slug;
+    const tenantName = tenant?.name;
 
-    let wizardConfig;
+    let crmConfig: CrmConfig;
     try {
-      wizardConfig = await this.wizardService.findByTenant(tenantId);
+      const wizardConfig = await this.wizardService.findByTenant(tenantId);
+      crmConfig = this.generateCRM(wizardConfig, tenantSlug, tenantName);
     } catch {
-      // Wizard hali to'ldirilmagan — default config ishlatamiz
-      const crmConfig = this.defaultCrmConfig(tenantId, tenantSlug);
-      await this.repo.save(
-        this.repo.create({
-          tenantId,
-          config: crmConfig as unknown as Record<string, unknown>,
-          status: GeneratedCrmStatus.ACTIVE,
-        }),
-      );
-      return crmConfig;
+      crmConfig = this.defaultCrmConfig(tenantId, tenantSlug, tenantName);
     }
-    const crmConfig = this.generateCRM(wizardConfig, tenantSlug);
 
+    // Upsert: update if exists, insert otherwise.
+    // Using a single find-then-save is not race-safe (React StrictMode and concurrent
+    // clients both call generate() simultaneously → duplicate key on INSERT).
+    // The explicit catch on '23505' makes it idempotent under any concurrency.
     const existing = await this.repo.findOne({ where: { tenantId } });
     if (existing) {
       existing.config = crmConfig as unknown as Record<string, unknown>;
       existing.status = GeneratedCrmStatus.ACTIVE;
       await this.repo.save(existing);
     } else {
-      await this.repo.save(
-        this.repo.create({
-          tenantId,
-          config: crmConfig as unknown as Record<string, unknown>,
-          status: GeneratedCrmStatus.ACTIVE,
-        }),
-      );
+      try {
+        await this.repo.save(
+          this.repo.create({
+            tenantId,
+            config: crmConfig as unknown as Record<string, unknown>,
+            status: GeneratedCrmStatus.ACTIVE,
+          }),
+        );
+      } catch (err: unknown) {
+        const pgErr = err as { code?: string };
+        if (pgErr.code === '23505') {
+          // Concurrent insert won the race — update instead
+          const row = await this.repo.findOne({ where: { tenantId } });
+          if (row) {
+            row.config = crmConfig as unknown as Record<string, unknown>;
+            row.status = GeneratedCrmStatus.ACTIVE;
+            await this.repo.save(row);
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
     return crmConfig;

@@ -188,7 +188,7 @@ export class TenantController {
   ) {
     if (user.role !== 'superadmin') throw new ForbiddenException('Faqat superadmin uchun');
     const tenant = await this.tenantService.findOne(id);
-    const result = await this.authService.generateImpersonateToken(tenant.ownerId);
+    const result = await this.authService.generateImpersonateToken(tenant.ownerId, tenant.id);
     return { ...result, slug: tenant.slug, tenantId: tenant.id };
   }
 

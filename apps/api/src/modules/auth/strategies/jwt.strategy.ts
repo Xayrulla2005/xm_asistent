@@ -13,6 +13,7 @@ export interface JwtPayload {
   role: string;
   tenantId: string | null;
   sessionToken: string | null;
+  impersonated?: boolean;
 }
 
 @Injectable()
@@ -35,33 +36,43 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<User | Employee> {
+  async validate(payload: JwtPayload): Promise<unknown> {
     const cacheKey = `${payload.sub}:${payload.sessionToken}`;
 
+    let entity: User | Employee | null;
     const cached = this.sessionCache.get(cacheKey);
-    if (cached && Date.now() < cached.exp) return cached.entity;
+    if (cached && Date.now() < cached.exp) {
+      entity = cached.entity;
+    } else {
+      entity = await this.userRepo.findOne({ where: { id: payload.sub } });
+      if (!entity) {
+        entity = await this.employeeRepo.findOne({ where: { id: payload.sub } });
+      }
 
-    let entity: User | Employee | null = await this.userRepo.findOne({ where: { id: payload.sub } });
-    if (!entity) {
-      entity = await this.employeeRepo.findOne({ where: { id: payload.sub } });
-    }
+      if (!entity) throw new UnauthorizedException();
 
-    if (!entity) throw new UnauthorizedException();
+      if (entity.sessionToken !== payload.sessionToken) {
+        throw new UnauthorizedException('Session expired. Logged in from another device.');
+      }
 
-    if (entity.sessionToken !== payload.sessionToken) {
-      throw new UnauthorizedException('Session expired. Logged in from another device.');
-    }
+      this.sessionCache.set(cacheKey, { entity, exp: Date.now() + this.CACHE_TTL });
 
-    this.sessionCache.set(cacheKey, { entity, exp: Date.now() + this.CACHE_TTL });
-
-    // Prune stale entries when cache grows large
-    if (this.sessionCache.size > 500) {
-      const now = Date.now();
-      for (const [k, v] of this.sessionCache) {
-        if (now > v.exp) this.sessionCache.delete(k);
+      if (this.sessionCache.size > 500) {
+        const now = Date.now();
+        for (const [k, v] of this.sessionCache) {
+          if (now > v.exp) this.sessionCache.delete(k);
+        }
       }
     }
 
-    return entity;
+    // JWT payload is authoritative for tenantId and role.
+    // The DB entity may have stale/different values — e.g. a superadmin
+    // impersonating a tenant has tenantId=null in DB but tenantId=tenant.id in JWT.
+    return {
+      ...entity,
+      tenantId:     payload.tenantId,
+      role:         payload.role,
+      impersonated: payload.impersonated ?? false,
+    };
   }
 }
