@@ -9,6 +9,7 @@ import Login from '../pages/Login';
 import Statistics from '../pages/Statistics';
 import Tenants from '../pages/Tenants';
 import Users from '../pages/Users';
+import LandingCMS from '../pages/LandingCMS';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -36,6 +37,7 @@ export function App() {
         <Route path="/billing"     element={<Billing />} />
         <Route path="/bugs"        element={<Bugs />} />
         <Route path="/audit"       element={<Audit />} />
+        <Route path="/landing-cms" element={<LandingCMS />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

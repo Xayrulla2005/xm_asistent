@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ShoppingCart, Stethoscope, GraduationCap, UtensilsCrossed, Sparkles, Dumbbell,
   ShieldCheck, Users, BarChart3, Smartphone, Globe, Zap,
@@ -419,8 +419,17 @@ const SOLUTION_ICONS = [BarChart3, Zap, Users, Globe];
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Landing() {
-  const [lang, setLang] = useState<Lang>('uz');
-  const t = T[lang];
+  const [lang, setLang]         = useState<Lang>('uz');
+  const [remoteT, setRemoteT]   = useState<typeof T | null>(null);
+
+  useEffect(() => {
+    fetch('/api/landing-settings')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: typeof T | null) => { if (data) setRemoteT(data); })
+      .catch(() => {});
+  }, []);
+
+  const t = (remoteT ?? T)[lang];
 
   const goRegister = () => { window.location.href = `${APP_URL}/register`; };
   const goLogin    = () => { window.location.href = `${APP_URL}/`; };

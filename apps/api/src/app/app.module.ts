@@ -36,6 +36,7 @@ import { BeautyModule } from '../modules/beauty/beauty.module';
 import { AutoModule } from '../modules/auto/auto.module';
 import { RedisModule } from '../modules/redis/redis.module';
 import { NotificationsModule } from '../modules/notifications/notifications.module';
+import { LandingSettingsModule } from '../modules/landing/landing-settings.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { NotificationsModule } from '../modules/notifications/notifications.modu
     BeautyModule,
     AutoModule,
     NotificationsModule,
+    LandingSettingsModule,
   ],
   controllers: [AppController],
   providers: [
