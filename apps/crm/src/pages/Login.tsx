@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
-import { Mail } from 'lucide-react';
+import { Lock, Mail, Server, ShieldCheck } from 'lucide-react';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/auth.store';
 import { useConfigStore } from '../stores/config.store';
 import { useTenantStore } from '../stores/tenant.store';
+import { getTenantSlug } from '../utils/subdomain';
 
 const TENANT_KEY = 'crm_tenantId';
 
@@ -182,6 +183,12 @@ function LoginForm({ onSuccess }: { onSuccess: (tenantId: string) => void }) {
       <p className="reg-link-row">
         Hisobingiz yo'qmi? <Link to="/register">Bepul boshlash →</Link>
       </p>
+
+      <div className="reg-trust-badges">
+        <div className="reg-trust-badge"><ShieldCheck size={11} /> SSL himoyalangan</div>
+        <div className="reg-trust-badge"><Lock size={11} /> Ma'lumotlar shifrlanadi</div>
+        <div className="reg-trust-badge"><Server size={11} /> 24/7 Backup</div>
+      </div>
     </div>
   );
 }
@@ -190,22 +197,34 @@ export default function Login() {
   const navigate    = useNavigate();
   const setTenantId = useTenantStore((s) => s.setTenantId);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
+  const [subdomainInfo, setSubdomainInfo] = useState<{ name: string; logoUrl: string | null } | null>(null);
 
   useEffect(() => {
+    // Auto-redirect if already logged in
     const token = localStorage.getItem('crm_accessToken');
     const tid   = localStorage.getItem(TENANT_KEY);
-    if (!token || !tid) return;
-    // Check token expiry before auto-redirecting
-    try {
-      const p = JSON.parse(atob(token.split('.')[1]));
-      if (p.exp && p.exp * 1000 < Date.now()) {
-        localStorage.removeItem('crm_accessToken');
-        localStorage.removeItem('crm_refreshToken');
-        return;
-      }
-    } catch { return; }
-    setTenantId(tid);
-    fetchConfig(tid).then(() => navigate('/dashboard'));
+    if (token && tid) {
+      try {
+        const p = JSON.parse(atob(token.split('.')[1]));
+        if (!p.exp || p.exp * 1000 > Date.now()) {
+          setTenantId(tid);
+          fetchConfig(tid).then(() => navigate('/dashboard'));
+          return;
+        }
+      } catch { /* invalid token — fall through to login */ }
+      localStorage.removeItem('crm_accessToken');
+      localStorage.removeItem('crm_refreshToken');
+    }
+
+    // Subdomain detection — pre-fetch tenant branding when on {slug}.domain.com
+    const slug = getTenantSlug();
+    if (slug) {
+      api.get<{ id: string; name: string; slug: string; logoUrl: string | null }>(
+        `/tenants/public/by-slug/${encodeURIComponent(slug)}`
+      )
+        .then(r => setSubdomainInfo({ name: r.data.name, logoUrl: r.data.logoUrl }))
+        .catch(() => { /* slug not found — show generic login */ });
+    }
   }, []);
 
   const handleSuccess = async (tenantId: string) => {
@@ -219,6 +238,22 @@ export default function Login() {
       <div className="reg-glow-2" />
       <div className="reg-glow-3" />
       <div className="reg-scroll">
+        {subdomainInfo && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: '0.5rem', marginBottom: '1.5rem',
+          }}>
+            {subdomainInfo.logoUrl && (
+              <img src={subdomainInfo.logoUrl} alt="logo" style={{ height: 48, objectFit: 'contain', borderRadius: 8 }} />
+            )}
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#e2e8f0' }}>
+              {subdomainInfo.name} CRM
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+              Hisobingizga kirish
+            </div>
+          </div>
+        )}
         <LoginForm onSuccess={handleSuccess} />
       </div>
     </div>

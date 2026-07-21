@@ -1,0 +1,116 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# XM Asistent — Nginx wildcard subdomain config template
+#
+# DNS setup (once, at your registrar):
+#   A     yourapp.uz       → <server-ip>
+#   A     *.yourapp.uz     → <server-ip>
+#
+# SSL wildcard (Let's Encrypt + DNS challenge):
+#   certbot certonly --manual --preferred-challenges dns \
+#     -d yourapp.uz -d *.yourapp.uz
+#
+# Replace every occurrence of "yourapp.uz" with your real domain.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Upstream services ─────────────────────────────────────────────────────────
+upstream api     { server 127.0.0.1:3000; }
+upstream crm     { server 127.0.0.1:4300; }
+upstream admin   { server 127.0.0.1:4200; }
+upstream landing { server 127.0.0.1:4400; }
+
+# ── HTTP → HTTPS redirect ──────────────────────────────────────────────────────
+server {
+    listen 80;
+    server_name yourapp.uz *.yourapp.uz;
+    return 301 https://$host$request_uri;
+}
+
+# ── Root domain → Landing page ────────────────────────────────────────────────
+server {
+    listen 443 ssl http2;
+    server_name yourapp.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/yourapp.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourapp.uz/privkey.pem;
+
+    location / {
+        proxy_pass http://landing;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# ── admin.yourapp.uz → Superadmin panel ───────────────────────────────────────
+server {
+    listen 443 ssl http2;
+    server_name admin.yourapp.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/yourapp.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourapp.uz/privkey.pem;
+
+    # Restrict access to your IP or internal network only
+    # allow 1.2.3.4;
+    # deny all;
+
+    location / {
+        proxy_pass http://admin;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# ── app.yourapp.uz → CRM (generic — register, login, new tenants) ─────────────
+server {
+    listen 443 ssl http2;
+    server_name app.yourapp.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/yourapp.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourapp.uz/privkey.pem;
+
+    location /api/ {
+        proxy_pass http://api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        client_max_body_size 20m;
+    }
+
+    location / {
+        proxy_pass http://crm;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# ── {slug}.yourapp.uz → CRM with tenant slug passed as header ────────────────
+# Catchall for every other subdomain — each maps to the CRM app.
+# The CRM reads window.location.hostname to extract the slug and loads
+# the correct tenant via GET /api/tenants/public/by-slug/:slug.
+server {
+    listen 443 ssl http2;
+    server_name ~^(?<tenant_slug>[^.]+)\.yourapp\.uz$;
+
+    ssl_certificate     /etc/letsencrypt/live/yourapp.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourapp.uz/privkey.pem;
+
+    location /api/ {
+        proxy_pass http://api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Tenant-Slug $tenant_slug;
+        client_max_body_size 20m;
+    }
+
+    location / {
+        proxy_pass http://crm;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# ── Uploads / static files from API ──────────────────────────────────────────
+# (Add this inside each server block that needs file uploads)
+# location /uploads/ {
+#     alias /var/www/xmasistent/uploads/;
+#     expires 7d;
+#     add_header Cache-Control "public, immutable";
+# }

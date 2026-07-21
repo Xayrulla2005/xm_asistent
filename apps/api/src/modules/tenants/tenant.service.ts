@@ -218,6 +218,18 @@ export class TenantService {
     });
   }
 
+  async findBySlug(slug: string): Promise<{ id: string; name: string; slug: string; logoUrl: string | null }> {
+    const tenant = await this.repo.findOne({ where: { slug, isActive: true } });
+    if (!tenant) throw new NotFoundException(`"${slug}" nomli CRM topilmadi`);
+    const wc = await this.wizardRepo.findOne({ where: { tenantId: tenant.id } });
+    return {
+      id:      tenant.id,
+      name:    tenant.name,
+      slug:    tenant.slug,
+      logoUrl: wc?.logoUrl ?? null,
+    };
+  }
+
   private toSlug(name: string): string {
     return name.toLowerCase().trim()
       .replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '')

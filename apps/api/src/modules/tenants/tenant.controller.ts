@@ -155,6 +155,12 @@ export class TenantController {
     return this.tenantService.findPublic();
   }
 
+  /** Public — resolves a tenant slug to its id/name for subdomain-based routing. */
+  @Get('public/by-slug/:slug')
+  findBySlug(@Param('slug') slug: string) {
+    return this.tenantService.findBySlug(slug);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   findOne(
