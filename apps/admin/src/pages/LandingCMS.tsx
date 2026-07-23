@@ -430,7 +430,7 @@ export default function LandingCMS() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
-  const toastRef              = useRef<ReturnType<typeof setTimeout>>();
+  const toastRef              = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Load from API on mount
   useEffect(() => {
@@ -547,11 +547,11 @@ export default function LandingCMS() {
           <div className="cms-section">
             {section === 'nav'        && <NavEditor        data={lc.nav}        onChange={v => updateSection('nav', v)} />}
             {section === 'hero'       && <HeroEditor       data={lc.hero}       onChange={v => updateSection('hero', v)} />}
-            {section === 'problems'   && <SectionWithItems data={lc.problems}   onChange={v => updateSection('problems', v)} />}
-            {section === 'solution'   && <SectionWithItems data={lc.solution}   onChange={v => updateSection('solution', v)} />}
+            {section === 'problems'   && <SectionWithItems data={lc.problems}   onChange={v => updateSection('problems',  v as Content[Lang]['problems'])}  />}
+            {section === 'solution'   && <SectionWithItems data={lc.solution}   onChange={v => updateSection('solution',  v as Content[Lang]['solution'])}  />}
             {section === 'industries' && <IndustriesEditor data={lc.industries} onChange={v => updateSection('industries', v)} />}
-            {section === 'steps'      && <SectionWithItems data={lc.steps}      onChange={v => updateSection('steps', v)} />}
-            {section === 'features'   && <SectionWithItems data={lc.features}   onChange={v => updateSection('features', v)} />}
+            {section === 'steps'      && <SectionWithItems data={lc.steps}      onChange={v => updateSection('steps',     v as Content[Lang]['steps'])}     />}
+            {section === 'features'   && <SectionWithItems data={lc.features}   onChange={v => updateSection('features',  v as Content[Lang]['features'])}  />}
             {section === 'pricing'    && <PricingEditor    data={lc.pricing}    onChange={v => updateSection('pricing', v)} />}
             {section === 'cta'        && <CtaEditor        data={lc.cta}        onChange={v => updateSection('cta', v)} />}
             {section === 'footer'     && <FooterEditor     data={lc.footer}     onChange={v => updateSection('footer', v)} />}

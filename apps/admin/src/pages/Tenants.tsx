@@ -9,7 +9,7 @@ import {
   Package, UserCheck, ShoppingBag, Briefcase,
   CheckCircle2, Clock, AlertCircle, XCircle,
   TrendingUp, Calendar, Layers, Activity,
-  Copy, Check, Eye, Trash2, Bug, Shield,
+  Copy, Check, Trash2, Bug, Shield,
   UserCircle, Key, LogIn, ArrowLeft,
   Stethoscope, GraduationCap, UtensilsCrossed, Dumbbell, Scissors, Wrench,
 } from 'lucide-react';
@@ -1001,6 +1001,8 @@ const CFG_TABS = [
   { key: 'pos',       label: 'POS'        },
   { key: 'receipt',   label: 'Chek'       },
   { key: 'employees', label: 'Xodimlar'   },
+  { key: 'stats',     label: 'Statistika' },
+  { key: 'billing',   label: 'Billing'    },
 ] as const;
 type CfgTabKey = typeof CFG_TABS[number]['key'];
 
@@ -3563,6 +3565,13 @@ function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
   const [addingEmp,    setAddingEmp]    = useState(false);
   const [newEmp,       setNewEmp]       = useState<NewEmpForm>({ firstName: '', lastName: '', email: '', password: '', role: 'cashier' });
   const [tenantActive, setTenantActive] = useState(tenant.isActive);
+  const [drawerDetail,  setDrawerDetail]  = useState<TenantDetail | null>(null);
+  const [statLoading,   setStatLoading]   = useState(false);
+  const [drawerBilling, setDrawerBilling] = useState<Subscription | null>(null);
+  const [billLoad,      setBillLoad]      = useState(false);
+  const [newPlan,       setNewPlan]       = useState<string>('trial');
+  const [newCycle,      setNewCycle]      = useState<'monthly' | 'yearly'>('monthly');
+  const [planSaving,    setPlanSaving]    = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -3580,6 +3589,24 @@ function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
       .catch(() => setEmployees([]))
       .finally(() => setEmpLoading(false));
   }, [tab, tenant.id]);
+
+  useEffect(() => {
+    if (tab !== 'stats' || drawerDetail) return;
+    setStatLoading(true);
+    api.get<TenantDetail>(`/tenants/${tenant.id}`)
+      .then((r) => setDrawerDetail(r.data))
+      .catch(() => {})
+      .finally(() => setStatLoading(false));
+  }, [tab, tenant.id, drawerDetail]);
+
+  useEffect(() => {
+    if (tab !== 'billing' || drawerBilling) return;
+    setBillLoad(true);
+    getBilling(tenant.id)
+      .then((b) => { setDrawerBilling(b); setNewPlan(b.plan); setNewCycle(b.billingCycle); })
+      .catch(() => {})
+      .finally(() => setBillLoad(false));
+  }, [tab, tenant.id, drawerBilling]);
 
   const patch = (p: Partial<WizardCfg>) =>
     setCfg((prev) => prev ? { ...prev, ...p } as WizardCfg : prev);
@@ -3627,6 +3654,19 @@ function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
       setTenantActive(next);
       onTenantStatusChange(tenant.id, next);
     } catch { /* silent */ }
+  };
+
+  const savePlan = async () => {
+    setPlanSaving(true);
+    try {
+      await api.post(`/billing/${tenant.id}/plan`, { plan: newPlan, cycle: newCycle });
+      setDrawerBilling(null);
+      showToast("Tarif o'zgartirildi!");
+    } catch {
+      showToast('Xatolik yuz berdi');
+    } finally {
+      setPlanSaving(false);
+    }
   };
 
   const handleAddEmp = async () => {
@@ -3684,6 +3724,8 @@ function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
             { key: 'pos',       icon: <ShoppingCart size={15} />, label: 'POS'       },
             { key: 'receipt',   icon: <Receipt size={15} />,      label: 'Chek'      },
             { key: 'employees', icon: <Users size={15} />,        label: 'Xodimlar'  },
+            { key: 'stats',     icon: <BarChart2 size={15} />,    label: 'Statistika'},
+            { key: 'billing',   icon: <CreditCard size={15} />,   label: 'Billing'   },
           ] as const).map((t) => (
             <button
               key={t.key}
@@ -4076,6 +4118,129 @@ function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
                 </div>
               )}
 
+              {/* ── TAB: STATISTIKA ── */}
+              {tab === 'stats' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {statLoading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Yuklanmoqda...</div>
+                  ) : !drawerDetail ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Ma'lumot topilmadi
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                        {[
+                          { icon: <ShoppingBag size={16} />, val: `${fmt(drawerDetail.stats.totalRevenue)} so'm`, label: 'Jami tushum',   color: '#6366f1' },
+                          { icon: <Package size={16} />,     val: `${drawerDetail.stats.totalSales} ta`,          label: 'Jami sotuvlar', color: '#10b981' },
+                          { icon: <UserCheck size={16} />,   val: `${drawerDetail.stats.totalCustomers} ta`,      label: 'Mijozlar',      color: '#f59e0b' },
+                          { icon: <Users size={16} />,       val: `${drawerDetail.stats.totalEmployees ?? 0} ta`, label: 'Xodimlar',      color: '#8b5cf6' },
+                        ].map(({ icon, val, label, color }) => (
+                          <div key={label} style={{ background: 'var(--bg)', borderRadius: 10, padding: '0.75rem' }}>
+                            <div style={{ color, marginBottom: '0.2rem' }}>{icon}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{label}</div>
+                            <div style={{ fontSize: '0.92rem', fontWeight: 700 }}>{val}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="s-section" style={{ marginTop: 0 }}>
+                        <div className="tenant-info-row">
+                          <span>Oylik tushum</span>
+                          <span style={{ fontWeight: 600 }}>{fmt(drawerDetail.stats.monthlyRevenue)} so'm</span>
+                        </div>
+                        <div className="tenant-info-row">
+                          <span>O'rtacha chek</span>
+                          <span style={{ fontWeight: 600 }}>{fmt(drawerDetail.stats.avgOrderValue)} so'm</span>
+                        </div>
+                        <div className="tenant-info-row">
+                          <span>Oxirgi faollik</span>
+                          <span style={{ fontWeight: 600 }}>{timeAgo(drawerDetail.stats.lastActivity)}</span>
+                        </div>
+                        <div className="tenant-info-row" style={{ borderBottom: 'none' }}>
+                          <span>Mahsulotlar</span>
+                          <span style={{ fontWeight: 600 }}>{drawerDetail.stats.totalProducts} ta</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ── TAB: BILLING ── */}
+              {tab === 'billing' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {billLoad ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Yuklanmoqda...</div>
+                  ) : !drawerBilling ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      Billing ma'lumoti topilmadi
+                    </div>
+                  ) : (
+                    <>
+                      <div className="s-section" style={{ marginTop: 0 }}>
+                        <div className="s-section-title">Joriy obuna</div>
+                        <div className="tenant-info-row">
+                          <span>Tarif</span>
+                          <span style={{
+                            fontWeight: 700, textTransform: 'capitalize',
+                            color: drawerBilling.plan === 'pro' ? '#7c3aed' : drawerBilling.plan === 'starter' ? '#2563eb' : 'var(--text)',
+                          }}>
+                            {drawerBilling.plan}
+                          </span>
+                        </div>
+                        <div className="tenant-info-row">
+                          <span>Holat</span>
+                          <span style={{ fontWeight: 600 }}>{drawerBilling.status}</span>
+                        </div>
+                        <div className="tenant-info-row">
+                          <span>To'lov sikli</span>
+                          <span style={{ fontWeight: 600 }}>{drawerBilling.billingCycle === 'yearly' ? 'Yillik' : 'Oylik'}</span>
+                        </div>
+                        {drawerBilling.trialEndsAt && (
+                          <div className="tenant-info-row" style={{ borderBottom: 'none' }}>
+                            <span>Sinov tugashi</span>
+                            <span style={{ fontWeight: 600 }}>{new Date(drawerBilling.trialEndsAt).toLocaleDateString('uz-UZ')}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="s-section" style={{ marginTop: 0 }}>
+                        <div className="s-section-title">Tarif o'zgartirish</div>
+                        <div className="s-row">
+                          <div className="s-row-label">Yangi tarif</div>
+                          <div className="s-row-ctrl">
+                            <select value={newPlan} onChange={(e) => setNewPlan(e.target.value)}>
+                              <option value="trial">Trial (sinov)</option>
+                              <option value="starter">Starter — 99 000 so'm/oy</option>
+                              <option value="pro">Pro — 299 000 so'm/oy</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="s-row" style={{ borderBottom: 'none' }}>
+                          <div className="s-row-label">To'lov sikli</div>
+                          <div className="s-row-ctrl">
+                            <div className="s-seg">
+                              {(['monthly', 'yearly'] as const).map((v) => (
+                                <button key={v} className={`s-seg-btn${newCycle === v ? ' s-seg-btn--active' : ''}`}
+                                  onClick={() => setNewCycle(v)}>
+                                  {v === 'monthly' ? 'Oylik' : 'Yillik'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ padding: '0.75rem 0 0' }}>
+                          <button className="btn-primary" style={{ fontSize: '0.85rem' }}
+                            disabled={planSaving || newPlan === drawerBilling.plan}
+                            onClick={savePlan}>
+                            {planSaving ? 'Saqlanmoqda...' : 'Tarifni saqlash'}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* ── TAB: XODIMLAR ── */}
               {tab === 'employees' && (
                 <div>
@@ -4180,7 +4345,7 @@ function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
         </div>
 
         {/* Save bar */}
-        {cfg && (
+        {cfg && tab !== 'stats' && tab !== 'billing' && (
           <div className="cfg-save-bar">
             <button className="btn-secondary" onClick={onClose}>Bekor qilish</button>
             <button className="btn-primary" onClick={save} disabled={saving}>
@@ -4210,7 +4375,7 @@ export default function Tenants() {
   const [formError,        setFormError]        = useState('');
   const [billingResult,    setBillingResult]    = useState<{ plan: string; tenantName: string } | null>(null);
   const [editingTenantId,  setEditingTenantId]  = useState<string | null>(null);
-  const [detailTenant,     setDetailTenant]     = useState<TenantDetail | null>(null);
+  const [detailTenant] = useState<TenantDetail | null>(null);
   const [showDetail,       setShowDetail]       = useState(false);
   const [detailLoading,    setDetailLoading]    = useState(false);
   const [deleteTarget,     setDeleteTarget]     = useState<Tenant | null>(null);
@@ -4274,16 +4439,6 @@ export default function Tenants() {
     } finally {
       setImpersonatingId(null);
     }
-  };
-
-  const handleView = async (id: string) => {
-    setDetailLoading(true);
-    try {
-      const { data: res } = await api.get<TenantDetail>(`/tenants/${id}`);
-      setDetailTenant(res);
-      setShowDetail(true);
-    } catch { setError("Detail yuklab bo'lmadi"); }
-    finally { setDetailLoading(false); }
   };
 
   const handleEdit = async (id: string) => {
@@ -4441,7 +4596,7 @@ export default function Tenants() {
         await api.patch(`/wizard/${editingTenantId}`, wizardPayload);
         // Agar tarif o'zgartirilsa — pending so'rov yuborish
         if (data.billingPlan !== 'free') {
-          await api.post(`/billing/${editingTenantId}/change-plan`, {
+          await api.post(`/billing/${editingTenantId}/plan`, {
             plan:  data.billingPlan,
             cycle: data.billingCycle,
           });
@@ -4458,7 +4613,7 @@ export default function Tenants() {
         // Starter/Pro → Trial + pending change-plan so'rovi
         await api.get(`/billing/${tenant.id}`); // Trial subscription yaratadi
         if (data.billingPlan !== 'free') {
-          await api.post(`/billing/${tenant.id}/change-plan`, {
+          await api.post(`/billing/${tenant.id}/plan`, {
             plan:  data.billingPlan,
             cycle: data.billingCycle,
           });
@@ -4555,13 +4710,7 @@ export default function Tenants() {
                       >
                         <Settings2 size={15} />
                       </button>
-                      <button
-                        className="action-btn action-btn--icon action-btn--view"
-                        onClick={() => handleView(t.id)}
-                        title="Batafsil ko'rish"
-                      >
-                        <Eye size={15} />
-                      </button>
+
                       <button
                         className="action-btn action-btn--icon action-btn--delete"
                         onClick={() => setDeleteTarget(t)}
