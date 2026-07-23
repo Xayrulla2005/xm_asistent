@@ -13,7 +13,7 @@ export type PaymentHistoryStatus = 'pending' | 'success' | 'failed';
 export interface Subscription {
   id:                   string;
   tenantId:             string;
-  tenantName:           string;   // joined in getAll()
+  tenantName:           string;
   plan:                 PlanType;
   status:               SubStatus;
   billingCycle:         BillingCycle;
@@ -33,6 +33,9 @@ export interface Subscription {
   pendingPlan:          PlanType | null;
   pendingCycle:         BillingCycle | null;
   pendingRequestedAt:   string | null;
+  isFrozen:             boolean;
+  frozenAt:             string | null;
+  unfreezeAt:           string | null;
   createdAt:            string;
   updatedAt:            string;
 }
@@ -115,3 +118,9 @@ export const approvePlanChange = (tenantId: string): Promise<Subscription> =>
 
 export const rejectPlanChange = (tenantId: string): Promise<Subscription> =>
   api.post<Subscription>(`/billing/${tenantId}/reject`).then((r) => r.data);
+
+export const freezeTenant = (tenantId: string, days: number): Promise<Subscription> =>
+  api.post<Subscription>(`/billing/${tenantId}/freeze`, { days }).then((r) => r.data);
+
+export const unfreezeTenant = (tenantId: string): Promise<Subscription> =>
+  api.post<Subscription>(`/billing/${tenantId}/unfreeze`).then((r) => r.data);

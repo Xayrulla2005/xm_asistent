@@ -20,7 +20,7 @@ import {
   getWizardConfig, updateWizardConfig, generateCrm, getEmployees, patchEmployee,
   impersonateTenant,
 } from '../api/wizard.api';
-import { getBilling, getPaymentHistory } from '../api/billing.api';
+import { getBilling, getPaymentHistory, freezeTenant, unfreezeTenant } from '../api/billing.api';
 import type { Subscription, PaymentHistoryItem } from '../api/billing.api';
 import DeleteConfirmDialogExtracted from './tenants/DeleteConfirmDialog';
 
@@ -4383,7 +4383,10 @@ export default function Tenants() {
   const [deleting,         setDeleting]         = useState(false);
   const [configTenant,     setConfigTenant]     = useState<Tenant | null>(null);
   const [configInitialTab, setConfigInitialTab] = useState<CfgTabKey>('general');
-  const [openMenuId,       setOpenMenuId]       = useState<string | null>(null);
+  const [menuState,        setMenuState]        = useState<{ tenantId: string; top: number; right: number } | null>(null);
+  const [freezeTarget,     setFreezeTarget]     = useState<Tenant | null>(null);
+  const [freezeDays,       setFreezeDays]       = useState(30);
+  const [freezing,         setFreezing]         = useState(false);
   const [modPreviewKey,    setModPreviewKey]    = useState<string | null>(null);
   const [impersonatingId,  setImpersonatingId]  = useState<string | null>(null);
   const [impersonateFrame, setImpersonateFrame] = useState<{ url: string; name: string } | null>(null);
@@ -4441,6 +4444,24 @@ export default function Tenants() {
       setTimeout(() => setError(''), 4000);
     } finally {
       setImpersonatingId(null);
+    }
+  };
+
+  const handleFreeze = async (unfreeze = false) => {
+    if (!freezeTarget) return;
+    setFreezing(true);
+    try {
+      if (unfreeze) {
+        await unfreezeTenant(freezeTarget.id);
+      } else {
+        await freezeTenant(freezeTarget.id, freezeDays);
+      }
+      setFreezeTarget(null);
+    } catch (e: any) {
+      setError(e.response?.data?.message ?? 'Xatolik yuz berdi');
+      setTimeout(() => setError(''), 4000);
+    } finally {
+      setFreezing(false);
     }
   };
 
@@ -4700,30 +4721,17 @@ export default function Tenants() {
                       {t.isActive ? '● Faol' : '● Nofaol'}
                     </button>
                   </td>
-                  <td style={{ width: 44, textAlign: 'right', position: 'relative' }}>
+                  <td style={{ width: 44, textAlign: 'right' }}>
                     <button
                       className="action-btn action-btn--icon"
-                      onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === t.id ? null : t.id); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        setMenuState(menuState?.tenantId === t.id ? null : { tenantId: t.id, top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                      }}
                     >
                       <MoreVertical size={15} />
                     </button>
-                    {openMenuId === t.id && (
-                      <div className="kebab-menu">
-                        <button className="kebab-item" onClick={() => { setConfigInitialTab('general'); setConfigTenant(t); setOpenMenuId(null); }}>
-                          <Settings2 size={14} /> Tahrirlash
-                        </button>
-                        <button className="kebab-item" onClick={() => { setConfigInitialTab('stats'); setConfigTenant(t); setOpenMenuId(null); }}>
-                          <BarChart2 size={14} /> Statistika
-                        </button>
-                        <button className="kebab-item" onClick={() => { setConfigInitialTab('billing'); setConfigTenant(t); setOpenMenuId(null); }}>
-                          <CreditCard size={14} /> Billing
-                        </button>
-                        <div className="kebab-divider" />
-                        <button className="kebab-item kebab-item--danger" onClick={() => { setDeleteTarget(t); setOpenMenuId(null); }}>
-                          <Trash2 size={14} /> O'chirish
-                        </button>
-                      </div>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -4790,8 +4798,116 @@ export default function Tenants() {
         />
       )}
 
-      {openMenuId && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpenMenuId(null)} />
+      {/* Kebab menu overlay + dropdown */}
+      {menuState && (() => {
+        const t = tenants.find((x) => x.id === menuState.tenantId);
+        if (!t) return null;
+        return (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setMenuState(null)} />
+            <div className="kbm" style={{ top: menuState.top, right: menuState.right }}>
+              <div className="kbm-section">
+                <button className="kbm-item" onClick={() => { setConfigInitialTab('general'); setConfigTenant(t); setMenuState(null); }}>
+                  <span className="kbm-icon"><Settings2 size={15} /></span>
+                  <span>
+                    <span className="kbm-label">Sozlamalar</span>
+                    <span className="kbm-desc">CRM konfiguratsiyasi</span>
+                  </span>
+                </button>
+                <button className="kbm-item" onClick={() => { setConfigInitialTab('stats'); setConfigTenant(t); setMenuState(null); }}>
+                  <span className="kbm-icon"><BarChart2 size={15} /></span>
+                  <span>
+                    <span className="kbm-label">Statistika</span>
+                    <span className="kbm-desc">Tushum, sotuvlar, mijozlar</span>
+                  </span>
+                </button>
+                <button className="kbm-item" onClick={() => { setConfigInitialTab('billing'); setConfigTenant(t); setMenuState(null); }}>
+                  <span className="kbm-icon"><CreditCard size={15} /></span>
+                  <span>
+                    <span className="kbm-label">Billing</span>
+                    <span className="kbm-desc">Tarif va to'lovlar</span>
+                  </span>
+                </button>
+              </div>
+              <div className="kbm-divider" />
+              <div className="kbm-section">
+                <button className="kbm-item" onClick={() => { toggleStatus(t); setMenuState(null); }}>
+                  <span className="kbm-icon" style={{ color: t.isActive ? '#f59e0b' : '#10b981' }}>
+                    {t.isActive ? <Clock size={15} /> : <CheckCircle2 size={15} />}
+                  </span>
+                  <span>
+                    <span className="kbm-label">{t.isActive ? "To'xtatish" : 'Faollashtirish'}</span>
+                    <span className="kbm-desc">{t.isActive ? "CRM vaqtincha to'xtatiladi" : 'CRM qayta ishga tushiriladi'}</span>
+                  </span>
+                </button>
+                <button className="kbm-item" onClick={() => { setFreezeTarget(t); setMenuState(null); }}>
+                  <span className="kbm-icon" style={{ color: '#6366f1' }}><Layers size={15} /></span>
+                  <span>
+                    <span className="kbm-label">Muzlatish</span>
+                    <span className="kbm-desc">Obuna muddatini to'xtatib qo'yish</span>
+                  </span>
+                </button>
+              </div>
+              <div className="kbm-divider" />
+              <div className="kbm-section">
+                <button className="kbm-item kbm-item--danger" onClick={() => { setDeleteTarget(t); setMenuState(null); }}>
+                  <span className="kbm-icon"><Trash2 size={15} /></span>
+                  <span>
+                    <span className="kbm-label">O'chirish</span>
+                    <span className="kbm-desc">Tenant va barcha ma'lumotlar</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Freeze modal */}
+      {freezeTarget && (
+        <div className="modal-overlay" onClick={() => setFreezeTarget(null)}>
+          <div className="freeze-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="freeze-modal-header">
+              <div>
+                <div className="freeze-modal-title">Obunani muzlatish</div>
+                <div className="freeze-modal-sub">{freezeTarget.name}</div>
+              </div>
+              <button className="td-close" onClick={() => setFreezeTarget(null)}>✕</button>
+            </div>
+            <div className="freeze-modal-body">
+              <div className="freeze-info-box">
+                <div className="freeze-info-row"><Layers size={14} /> Muzlatish paytida obuna to'xtatiladi</div>
+                <div className="freeze-info-row"><Clock size={14} /> Muzlatish tugagach, qolgan kunlar davom etadi</div>
+                <div className="freeze-info-row"><CheckCircle2 size={14} /> Period oxiri muzlatish kunlari bilan uzaytiriladi</div>
+              </div>
+              <div className="s-row" style={{ marginTop: '1rem' }}>
+                <div className="s-row-label">Muzlatish muddati</div>
+                <div className="s-row-ctrl" style={{ gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="number" min={1} max={365}
+                    value={freezeDays}
+                    onChange={(e) => setFreezeDays(Math.max(1, Math.min(365, Number(e.target.value))))}
+                    style={{ width: 80, textAlign: 'center' }}
+                  />
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>kun</span>
+                </div>
+              </div>
+              <div className="freeze-days-quick">
+                {[7, 14, 30, 60, 90].map((d) => (
+                  <button key={d} className={`s-pill${freezeDays === d ? ' s-pill--on' : ''}`} onClick={() => setFreezeDays(d)}>
+                    {d} kun
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="freeze-modal-footer">
+              <button className="btn-secondary" onClick={() => setFreezeTarget(null)}>Bekor qilish</button>
+              <button className="btn-primary" disabled={freezing} onClick={() => handleFreeze(false)}>
+                {freezing ? 'Muzlatilmoqda...' : `${freezeDays} kunga muzlatish`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {configTenant && (

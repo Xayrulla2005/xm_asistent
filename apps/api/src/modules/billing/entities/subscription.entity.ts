@@ -84,6 +84,16 @@ export class Subscription {
   @Column({ nullable: true, type: 'timestamptz' })
   nextPaymentAt: Date | null;
 
+  // ── Freeze (pause billing period) ─────────────────────────────────────────
+  @Column({ type: 'boolean', default: false })
+  isFrozen: boolean;
+
+  @Column({ nullable: true, type: 'timestamptz' })
+  frozenAt: Date | null;
+
+  @Column({ nullable: true, type: 'timestamptz' })
+  unfreezeAt: Date | null;
+
   // ── Pending plan-change request ────────────────────────────────────────────
   @Column({ nullable: true, type: 'varchar' })
   pendingPlan: PlanType | null;

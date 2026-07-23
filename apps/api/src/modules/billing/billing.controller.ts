@@ -132,6 +132,23 @@ export class BillingController {
     return this.billingService.reactivateTenant(tenantId);
   }
 
+  @Post(':tenantId/freeze')
+  @UseGuards(RolesGuard)
+  @Roles('superadmin')
+  freezeTenant(
+    @Param('tenantId') tenantId: string,
+    @Body('days') days: number,
+  ) {
+    return this.billingService.freezeTenant(tenantId, days ?? 30);
+  }
+
+  @Post(':tenantId/unfreeze')
+  @UseGuards(RolesGuard)
+  @Roles('superadmin')
+  unfreezeTenant(@Param('tenantId') tenantId: string) {
+    return this.billingService.unfreezeTenant(tenantId);
+  }
+
   @Post(':tenantId/approve')
   @UseGuards(RolesGuard)
   @Roles('superadmin')

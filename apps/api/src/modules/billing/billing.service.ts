@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -153,12 +153,21 @@ const FLAGS_BY_PLAN: Record<PlanType, FeatureFlags> = {
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class BillingService {
+export class BillingService implements OnModuleInit {
   constructor(
     @InjectRepository(Subscription)  private readonly subRepo:     Repository<Subscription>,
     @InjectRepository(PaymentHistory) private readonly payRepo:    Repository<PaymentHistory>,
     @InjectRepository(Tenant)         private readonly tenantRepo: Repository<Tenant>,
   ) {}
+
+  async onModuleInit() {
+    await this.subRepo.manager.query(`
+      ALTER TABLE subscriptions
+        ADD COLUMN IF NOT EXISTS "isFrozen"   BOOLEAN     NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS "frozenAt"   TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS "unfreezeAt" TIMESTAMPTZ
+    `);
+  }
 
   // ── Get or create a TRIAL subscription ────────────────────────────────────
 
@@ -289,6 +298,31 @@ export class BillingService {
   async reactivateTenant(tenantId: string): Promise<Subscription> {
     const sub  = await this.getOrCreate(tenantId);
     sub.status = SubStatus.ACTIVE;
+    return this.subRepo.save(sub);
+  }
+
+  // ── Freeze / unfreeze (pause billing period) ──────────────────────────────
+
+  async freezeTenant(tenantId: string, days: number): Promise<Subscription> {
+    const sub = await this.getOrCreate(tenantId);
+    if (sub.isFrozen) throw new BadRequestException('Obuna allaqachon muzlatilgan');
+    const frozenAt   = new Date();
+    const unfreezeAt = new Date(frozenAt.getTime() + days * 86_400_000);
+    // Extend the current period by freeze days so remaining time is preserved
+    sub.currentPeriodEnd = new Date(sub.currentPeriodEnd.getTime() + days * 86_400_000);
+    sub.isFrozen   = true;
+    sub.frozenAt   = frozenAt;
+    sub.unfreezeAt = unfreezeAt;
+    sub.status     = SubStatus.SUSPENDED;
+    return this.subRepo.save(sub);
+  }
+
+  async unfreezeTenant(tenantId: string): Promise<Subscription> {
+    const sub = await this.getOrCreate(tenantId);
+    sub.isFrozen   = false;
+    sub.frozenAt   = null;
+    sub.unfreezeAt = null;
+    sub.status     = SubStatus.ACTIVE;
     return this.subRepo.save(sub);
   }
 
