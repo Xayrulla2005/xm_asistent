@@ -10,7 +10,7 @@ import {
   CheckCircle2, Clock, AlertCircle, XCircle,
   TrendingUp, Calendar, Layers, Activity,
   Copy, Check, Trash2, Bug, Shield,
-  UserCircle, Key, LogIn, ArrowLeft,
+  UserCircle, Key, LogIn, ArrowLeft, MoreVertical,
   Stethoscope, GraduationCap, UtensilsCrossed, Dumbbell, Scissors, Wrench,
 } from 'lucide-react';
 import api from '../api/axios';
@@ -3549,12 +3549,13 @@ interface NewEmpForm {
   email: string; password: string; role: string;
 }
 
-function ConfigDrawer({ tenant, onClose, onTenantStatusChange }: {
+function ConfigDrawer({ tenant, onClose, onTenantStatusChange, initialTab = 'general' }: {
   tenant: Tenant;
   onClose: () => void;
   onTenantStatusChange: (id: string, active: boolean) => void;
+  initialTab?: CfgTabKey;
 }) {
-  const [tab,          setTab]          = useState<CfgTabKey>('general');
+  const [tab,          setTab]          = useState<CfgTabKey>(initialTab);
   const [cfg,          setCfg]          = useState<WizardCfg | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
@@ -4381,6 +4382,8 @@ export default function Tenants() {
   const [deleteTarget,     setDeleteTarget]     = useState<Tenant | null>(null);
   const [deleting,         setDeleting]         = useState(false);
   const [configTenant,     setConfigTenant]     = useState<Tenant | null>(null);
+  const [configInitialTab, setConfigInitialTab] = useState<CfgTabKey>('general');
+  const [openMenuId,       setOpenMenuId]       = useState<string | null>(null);
   const [modPreviewKey,    setModPreviewKey]    = useState<string | null>(null);
   const [impersonatingId,  setImpersonatingId]  = useState<string | null>(null);
   const [impersonateFrame, setImpersonateFrame] = useState<{ url: string; name: string } | null>(null);
@@ -4659,13 +4662,12 @@ export default function Tenants() {
                 <th>Soha</th>
                 <th>Modullar</th>
                 <th>Status</th>
-                <th>Yaratilgan</th>
-                <th>Amallar</th>
+                <th style={{ width: 44 }}></th>
               </tr>
             </thead>
             <tbody>
               {tenants.length === 0 ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Hech qanday tenant topilmadi</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Hech qanday tenant topilmadi</td></tr>
               ) : tenants.map((t) => (
                 <tr key={t.id}>
                   <td>
@@ -4698,27 +4700,30 @@ export default function Tenants() {
                       {t.isActive ? '● Faol' : '● Nofaol'}
                     </button>
                   </td>
-                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {new Date(t.createdAt).toLocaleDateString('uz-UZ')}
-                  </td>
-                  <td>
-                    <div className="action-btns">
-                      <button
-                        className="action-btn action-btn--icon"
-                        onClick={() => setConfigTenant(t)}
-                        title="CRM Sozlamalari"
-                      >
-                        <Settings2 size={15} />
-                      </button>
-
-                      <button
-                        className="action-btn action-btn--icon action-btn--delete"
-                        onClick={() => setDeleteTarget(t)}
-                        title="O'chirish"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                  <td style={{ width: 44, textAlign: 'right', position: 'relative' }}>
+                    <button
+                      className="action-btn action-btn--icon"
+                      onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === t.id ? null : t.id); }}
+                    >
+                      <MoreVertical size={15} />
+                    </button>
+                    {openMenuId === t.id && (
+                      <div className="kebab-menu">
+                        <button className="kebab-item" onClick={() => { setConfigInitialTab('general'); setConfigTenant(t); setOpenMenuId(null); }}>
+                          <Settings2 size={14} /> Tahrirlash
+                        </button>
+                        <button className="kebab-item" onClick={() => { setConfigInitialTab('stats'); setConfigTenant(t); setOpenMenuId(null); }}>
+                          <BarChart2 size={14} /> Statistika
+                        </button>
+                        <button className="kebab-item" onClick={() => { setConfigInitialTab('billing'); setConfigTenant(t); setOpenMenuId(null); }}>
+                          <CreditCard size={14} /> Billing
+                        </button>
+                        <div className="kebab-divider" />
+                        <button className="kebab-item kebab-item--danger" onClick={() => { setDeleteTarget(t); setOpenMenuId(null); }}>
+                          <Trash2 size={14} /> O'chirish
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -4785,10 +4790,15 @@ export default function Tenants() {
         />
       )}
 
+      {openMenuId && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setOpenMenuId(null)} />
+      )}
+
       {configTenant && (
         <ConfigDrawer
           tenant={configTenant}
-          onClose={() => setConfigTenant(null)}
+          initialTab={configInitialTab}
+          onClose={() => { setConfigTenant(null); setConfigInitialTab('general'); }}
           onTenantStatusChange={(id, active) =>
             setTenants((ts) => ts.map((t) => t.id === id ? { ...t, isActive: active } : t))
           }
